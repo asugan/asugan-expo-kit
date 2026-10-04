@@ -33,7 +33,8 @@ function native(platform = 'ios') {
   const annual = pkg('ANNUAL', 'P1Y');
   const monthly = pkg('MONTHLY', 'P1M');
   const lifetime = pkg('LIFETIME', null);
-  const offering = { identifier: 'main', annual, monthly, lifetime, availablePackages: [annual, monthly, lifetime] };
+  const weekly = pkg('WEEKLY', 'P1W');
+  const offering = { identifier: 'main', annual, monthly, lifetime, weekly, availablePackages: [annual, monthly, lifetime, weekly] };
   const configurations = [];
   const sdk = {
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
@@ -150,7 +151,7 @@ test('trial eligibility failures keep plans but do not promise a trial', async (
   console.error = (...args) => errors.push(args);
   try {
     const data = await env.createRevenueCat(config).getPaywallData();
-    assert.equal(Object.keys(data.plans).length, 3);
+    assert.equal(Object.keys(data.plans).length, 4);
     assert.equal(data.plans.yearly.hasFreeTrial, false);
     assert.equal(errors.length, 1);
   } finally { console.error = log; }
@@ -169,15 +170,16 @@ test('Android trials use eligible default option, not iOS introPrice', async () 
   assert.equal(data.plans.monthly.hasFreeTrial, false);
 });
 
-test('custom package periods supported; unknown/weekly packages never misclassified as lifetime', async () => {
+test('custom weekly periods supported; unknown packages never misclassified as lifetime', async () => {
   const env = native();
-  env.offering.annual = env.offering.monthly = env.offering.lifetime = null;
+  env.offering.annual = env.offering.monthly = env.offering.lifetime = env.offering.weekly = null;
   const unknown = pkg('CUSTOM', null, 'unknown');
   unknown.product.productType = 'UNKNOWN';
   env.offering.availablePackages = [unknown, pkg('CUSTOM', 'P1W', 'weekly'), pkg('CUSTOM', 'P12M', 'custom-year')];
   const data = await env.createRevenueCat(config).getPaywallData();
-  assert.deepEqual(Object.keys(data.plans), ['yearly']);
+  assert.deepEqual(Object.keys(data.plans), ['yearly', 'weekly']);
   assert.equal(data.plans.yearly.productId, 'custom-year');
+  assert.equal(data.plans.weekly.productId, 'weekly');
 });
 
 test('explicit plan never silently falls back to a different purchase; default order preserved', async () => {
@@ -190,9 +192,31 @@ test('explicit plan never silently falls back to a different purchase; default o
   await assert.rejects(client.purchasePlan('monthly'), /requested billing cycle/);
   assert.equal(env.purchased.length, 0);
   assert.deepEqual(await client.purchasePlan(), { isActive: true, cancelled: false });
-  assert.equal(env.purchased[0], env.offering.annual);
+  assert.equal(env.purchased[0], env.offering.lifetime);
   await client.purchasePlan('oneTime');
   assert.equal(env.purchased[1], env.offering.lifetime);
+});
+
+test('native priority includes weekly and skips absent packages without changing explicit purchases', async () => {
+  const env = native();
+  const client = env.createRevenueCat(config);
+  const priority = [env.offering.lifetime, env.offering.annual, env.offering.monthly, env.offering.weekly];
+  const cycles = ['oneTime', 'yearly', 'monthly', 'weekly'];
+  const fields = ['lifetime', 'annual', 'monthly', 'weekly'];
+  for (let first = 0; first < priority.length; first++) {
+    env.offering.availablePackages = priority.slice(first);
+    fields.forEach((field, index) => { env.offering[field] = index >= first ? priority[index] : null; });
+    const data = await client.getPaywallData();
+    assert.deepEqual(Object.keys(data.plans), cycles.slice(first));
+    await client.purchasePlan();
+    assert.equal(env.purchased.at(-1), priority[first]);
+  }
+  await client.purchasePlan('weekly');
+  assert.equal(env.purchased.at(-1), priority[3]);
+  env.offering.weekly = null;
+  env.offering.availablePackages = [];
+  await assert.rejects(client.purchasePlan('weekly'), /requested billing cycle/);
+  await assert.rejects(client.purchasePlan(), /requested billing cycle/);
 });
 
 test('purchase cancellation is distinct from pending entitlement and SDK errors', async () => {
@@ -299,5 +323,9 @@ test('Metro resolves native core and optional UI on iOS/Android, safe fallbacks 
     assert.equal(core.filePath, path.join(root, `dist/revenuecat${platform === 'web' ? '' : '.native'}.js`));
     const ui = resolve(ctx, '@asugan/expo-kit/customer-center', platform);
     assert.equal(ui.filePath, path.join(root, `dist/customer-center${platform === 'web' ? '' : '.native'}.js`));
+    const paywall = resolve(ctx, '@asugan/expo-kit/paywall', platform);
+    assert.equal(paywall.filePath, path.join(root, 'dist/paywall.js'));
+    const success = resolve(ctx, '@asugan/expo-kit/purchase-success-modal', platform);
+    assert.equal(success.filePath, path.join(root, 'dist/purchase-success-modal.js'));
   }
 });

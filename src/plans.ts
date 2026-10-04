@@ -3,12 +3,11 @@ import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases
 import { getFreeTrialDetails } from './trial';
 import type { BillingCycle, RevenueCatPaywallPlan } from './types';
 
-export const defaultCycleOrder: readonly BillingCycle[] = ['yearly', 'monthly', 'oneTime'];
-
 function inferCycle(pkg: PurchasesPackage): BillingCycle | null {
   switch (pkg.packageType) {
     case 'ANNUAL': return 'yearly';
     case 'MONTHLY': return 'monthly';
+    case 'WEEKLY': return 'weekly';
     case 'LIFETIME': return 'oneTime';
   }
 
@@ -16,6 +15,7 @@ function inferCycle(pkg: PurchasesPackage): BillingCycle | null {
     case 'P1Y':
     case 'P12M': return 'yearly';
     case 'P1M': return 'monthly';
+    case 'P1W': return 'weekly';
   }
 
   // Only known non-consumables count as lifetime; null periods can also be unknown subscriptions.
@@ -27,6 +27,7 @@ export function findPackageForCycle(offering: PurchasesOffering, cycle: BillingC
     yearly: offering.annual,
     monthly: offering.monthly,
     oneTime: offering.lifetime,
+    weekly: offering.weekly,
   }[cycle];
   return standardPackage ?? offering.availablePackages.find((pkg) => inferCycle(pkg) === cycle) ?? null;
 }

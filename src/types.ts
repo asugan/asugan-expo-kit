@@ -1,4 +1,4 @@
-export type BillingCycle = 'oneTime' | 'yearly' | 'monthly';
+export type BillingCycle = 'oneTime' | 'yearly' | 'monthly' | 'weekly';
 export type TrialPeriodUnit = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
 
 export type FreeTrialDetails = {

@@ -2,7 +2,8 @@ import { Platform } from 'react-native';
 import Purchases, { type CustomerInfo, type PurchasesOffering } from 'react-native-purchases';
 
 import { normalizeConfig } from './config';
-import { defaultCycleOrder, findPackageForCycle, toPaywallPlan } from './plans';
+import { findPackageForCycle, toPaywallPlan } from './plans';
+import { defaultCycleOrder } from './pricing';
 import type {
   BillingCycle,
   RevenueCatClient,

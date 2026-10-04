@@ -1,0 +1,46 @@
+{
+  "name": "@asugan/expo-kit",
+  "version": "0.1.0",
+  "description": "Shared building blocks for Asugan Expo apps. RevenueCat subscriptions first.",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "react-native": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./customer-center": {
+      "types": "./dist/customer-center.d.ts",
+      "react-native": "./dist/customer-center.native.js",
+      "default": "./dist/customer-center.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.cjs",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react-native": ">=0.81.0 <1",
+    "react-native-purchases": ">=9.10.3 <10",
+    "react-native-purchases-ui": ">=9.10.3 <10"
+  },
+  "peerDependenciesMeta": {
+    "react-native-purchases-ui": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-purchases": "9.10.3",
+    "react-native-purchases-ui": "9.10.3",
+    "typescript": "~6.0.3"
+  },
+  "publishConfig": { "access": "public" }
+}

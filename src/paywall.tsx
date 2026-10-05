@@ -73,6 +73,7 @@ export type PaywallProps = {
   /** Explicit successful purchase/restore feedback; only shown when isPremium is true. */
   success?: PaywallSuccess | null;
   defaultCycle?: BillingCycle;
+  /** Visible cycles; display always follows lifetime → yearly → monthly → weekly. */
   planOrder?: readonly BillingCycle[];
   onSelectPlan?: (plan: RevenueCatPaywallPlan) => void;
   /** Host owns async state, SDK calls, errors, analytics, and success feedback. */
@@ -98,15 +99,14 @@ export function Paywall({
   const { width, fontScale } = useWindowDimensions();
   const compact = width < 360 || fontScale > 1.3;
   const busy = purchasing || restoring;
-  const plans = [...new Set(planOrder)].flatMap((cycle) => {
+  const plans = defaultCycleOrder.filter((cycle) => planOrder.includes(cycle)).flatMap((cycle) => {
     const plan = data?.isConfigured ? data.plans[cycle] : undefined;
     return plan ? [plan] : [];
   });
   const availableCycles = plans.map((plan) => plan.cycle);
-  const preferredCycles = defaultCycleOrder.filter((cycle) => availableCycles.includes(cycle));
-  const recommendedCycle = preferredCycles[0];
+  const recommendedCycle = availableCycles[0];
   const selectedCycle = chosenCycle && availableCycles.includes(chosenCycle) ? chosenCycle
-    : getPreferredDefaultCycle(preferredCycles, defaultCycle);
+    : getPreferredDefaultCycle(availableCycles, defaultCycle);
   const selectedPlan = plans.find((plan) => plan.cycle === selectedCycle);
   const canPurchase = Boolean(selectedPlan && !loading && !error && !busy && !isPremium);
   const canRestore = Boolean(data?.isConfigured && !loading && !busy);
@@ -194,10 +194,11 @@ export function Paywall({
                   }}
                   style={({ pressed }) => [styles.plan, radius,
                     { backgroundColor: theme.surface, borderColor: selected ? theme.primary : theme.border },
+                    badge && { marginTop: 12 * fontScale },
                     disabled && styles.disabled, pressed && styles.pressed]}>
                   {badge ? (
-                    <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-                      <Text style={[styles.caption, { color: theme.onPrimary, fontFamily: theme.fontFamily }]}>{badge}</Text>
+                    <View pointerEvents="none" style={[styles.badge, { backgroundColor: theme.primary }]}>
+                      <Text style={[styles.badgeText, { color: theme.onPrimary, fontFamily: theme.fontFamily }]}>{badge}</Text>
                     </View>
                   ) : null}
                   <View style={[styles.planBody, compact && styles.planBodyCompact]}>
@@ -275,15 +276,17 @@ const styles = StyleSheet.create({
   status: { alignItems: 'center', gap: 12 },
   statusText: { fontSize: 16, textAlign: 'center' },
   plans: { gap: 12 },
-  plan: { minHeight: 82, borderWidth: 2, padding: 16, gap: 8 },
+  plan: { minHeight: 82, borderWidth: 2, padding: 16 },
   planBody: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   planBodyCompact: { flexDirection: 'column', alignItems: 'stretch' },
   planName: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   planLabels: { flex: 1, gap: 4 },
-  planTitle: { fontSize: 17, fontWeight: '700' },
+  planTitle: { maxWidth: '100%', fontSize: 17, fontWeight: '700' },
   radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
-  badge: { alignSelf: 'flex-end', maxWidth: '100%', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  badge: { position: 'absolute', top: 0, right: 16, transform: [{ translateY: '-50%' }],
+    maxWidth: '80%', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  badgeText: { fontSize: 11, lineHeight: 16, fontWeight: '700' },
   priceBlock: { maxWidth: '50%', alignItems: 'flex-end', gap: 4 },
   priceBlockCompact: { maxWidth: '100%', alignItems: 'flex-start', paddingStart: 36 },
   price: { fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'] },

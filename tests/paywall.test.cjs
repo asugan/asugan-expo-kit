@@ -108,7 +108,7 @@ test('priority controls order, initial selection and one recommendation, skippin
   for (let mask = 0; mask < 16; mask++) {
     const available = order.filter((_, index) => mask & (1 << index));
     const plans = Object.fromEntries(available.map((cycle) => [cycle, data.plans[cycle]]));
-    await update(renderer, { data: { ...data, plans } });
+    await update(renderer, { data: { ...data, plans }, planOrder: [...order].reverse() });
     const radios = controls(renderer, 'radio');
     assert.deepEqual(radios.map((node) => node.props.accessibilityLabel.split(',')[0]), available);
     assert.equal(texts(renderer).filter((text) => text === 'Recommended').length, available.length ? 1 : 0);
@@ -120,13 +120,41 @@ test('priority controls order, initial selection and one recommendation, skippin
   await update(renderer);
   await act(() => controls(renderer, 'radio')[3].props.onPress());
   assert.equal(button(renderer, 'Buy weekly').props.disabled, false);
+  assert.deepEqual(controls(renderer, 'radio').map((node) => node.props.accessibilityLabel.split(',')[0]), order);
   assert.ok(controls(renderer, 'radio')[0].props.accessibilityLabel.includes('Recommended'));
   assert.ok(!controls(renderer, 'radio')[3].props.accessibilityLabel.includes('Recommended'));
-  // Reordering or hiding cards must not recommend a lower-priority visible plan.
-  const fresh = await render({ planOrder: ['weekly', 'yearly'] });
+  // Host order only filters cards; priority still controls their display order.
+  const fresh = await render({ planOrder: ['weekly', 'yearly', 'yearly'] });
   assert.equal(button(fresh, 'Buy yearly').props.disabled, false);
-  assert.ok(controls(fresh, 'radio')[1].props.accessibilityLabel.includes('Recommended'));
+  assert.deepEqual(controls(fresh, 'radio').map((node) => node.props.accessibilityLabel.split(',')[0]), ['yearly', 'weekly']);
+  assert.ok(controls(fresh, 'radio')[0].props.accessibilityLabel.includes('Recommended'));
   await cleanup(fresh);
+  await cleanup(renderer);
+});
+
+test('recommendation floats over the top-right border without adding a row inside the card', async () => {
+  const renderer = await render({ data: { ...data, plans: { monthly, yearly } }, planOrder: ['monthly', 'yearly'] });
+  const card = controls(renderer, 'radio').find((node) => node.props.accessibilityLabel.startsWith('yearly,'));
+  const title = card.findAllByType('Text').find((node) => node.props.children === 'yearly');
+  const badge = card.findAllByType('Text').find((node) => node.props.children === 'Recommended');
+  // Compare identity as a boolean: failures must not dump the entire React Fiber graph.
+  assert.ok(badge.parent.parent === card, 'badge must be positioned relative to the card');
+  assert.ok(badge.parent !== title.parent, 'badge must not occupy the plan label');
+  const badgeStyle = badge.parent.props.style[0];
+  assert.equal(badgeStyle.position, 'absolute');
+  assert.equal(badgeStyle.top, 0);
+  assert.equal(badgeStyle.right, 16);
+  assert.deepEqual(badgeStyle.transform, [{ translateY: '-50%' }]);
+  assert.equal(badge.parent.props.pointerEvents, 'none');
+  assert.equal(card.props.style({ pressed: false }).find((style) => style?.marginTop).marginTop, 12);
+  assert.equal(badge.props.numberOfLines, undefined);
+  dimensions = { ...dimensions, width: 320, fontScale: 2 };
+  await update(renderer, { data: { ...data, plans: { monthly, yearly } } });
+  const scaledCard = controls(renderer, 'radio')[0];
+  assert.equal(scaledCard.props.style({ pressed: false }).find((style) => style?.marginTop).marginTop, 24);
+  assert.ok(scaledCard.findAllByType('View').some((node) =>
+    Array.isArray(node.props.style) && node.props.style.some((style) => style?.flexDirection === 'column')));
+  dimensions = { ...dimensions, width: 390, fontScale: 1 };
   await cleanup(renderer);
 });
 

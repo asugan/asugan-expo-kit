@@ -220,18 +220,18 @@ the component always displays the SDK's localized `plan.price`, not a caller-sup
 | `features` | Stable `id`, translated `text`, and optional `icon` for each benefit. |
 | `copy` | Required labels (including `recommended`), plan copy, billing disclosure, and optional plan-specific purchase label. |
 | `data`, `loading`, `error`, `onRetry` | SDK paywall data and loading/error/empty/content states. |
-| `defaultCycle`, `planOrder`, `onSelectPlan` | Initial preference, visible ordering, and optional selection analytics. |
+| `defaultCycle`, `planOrder`, `onSelectPlan` | Initial preference, visible cycle filter, and optional selection analytics. |
 | `purchasing`, `restoring`, `isPremium` | Controlled action states; plan selection and duplicate actions are disabled while busy. |
 | `success` | Optional success modal content and close handler; shown only when `isPremium` is true. |
 | `onPurchase`, `onRestore`, `onClose` | Host-owned SDK calls and navigation. Purchase receives the displayed selected plan. |
 | `terms`, `privacy` | Required link labels and host-owned handlers. |
 | `footer`, `style` | Optional custom footer content and root layout override. |
 
-Default display and selection priority: **lifetime (`oneTime`) → yearly → monthly → weekly**.
-Unavailable plans are skipped. Selection is internal; `defaultCycle` can override the initial preference,
-and `planOrder` can customize which cards are displayed and in what order.
-Exactly one recommended badge follows the same priority among displayed available plans,
-independent of the user's selection or custom display order. If lifetime is absent, yearly gets the badge;
+Fixed display priority: **lifetime (`oneTime`) → yearly → monthly → weekly**.
+Unavailable plans are skipped. Selection is internal; `defaultCycle` can override the initial preference
+without changing card order. `planOrder` filters visible cycles; its input order does not override priority.
+Exactly one compact recommended badge floats over the card's top-right border, without adding a row inside the card.
+It follows the same priority among displayed available plans, independent of the user's selection. If lifetime is absent, yearly gets the badge;
 if yearly is also absent, it moves to monthly, then weekly. An empty list has no badge.
 Set the translated badge label with `copy.recommended` (replaces per-plan `copy.plan(...).badge`).
 If a selected plan disappears, selection falls back to the highest-priority displayed available plan,

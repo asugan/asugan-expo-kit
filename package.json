@@ -1,6 +1,6 @@
 {
   "name": "@asugan/expo-kit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shared building blocks for Asugan Expo apps: RevenueCat subscriptions and a customizable paywall.",
   "license": "UNLICENSED",
   "main": "./dist/index.js",
@@ -32,7 +32,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.cjs",
-    "prepack": "npm run build"
+    "prepack": "npm test"
   },
   "peerDependencies": {
     "react": ">=19.0.0 <20",

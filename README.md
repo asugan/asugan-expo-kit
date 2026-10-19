@@ -9,16 +9,24 @@ The package has not been published to npm yet. In this repository:
 
 ```sh
 npm ci
-npm test
 npm pack
 ```
 
 Install the generated archive in your Expo app:
 
 ```sh
-npm install ../asugan-skeleton/asugan-expo-kit-0.3.0.tgz
-npx expo install react-native-purchases@^9.10.3
+npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.3.1.tgz react-native-purchases@^9.10.3
 ```
+
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.3.1 includes the compact recommended badge positioned over the plan card's top-right border.
+
+### Local package release rules
+
+- After changing distributable code, bump the version in `package.json` and `package-lock.json` before distributing a new archive. Never distribute different contents under the same version or reuse an old archive merely because its filename matches the current version.
+- Run `npm ci` and `npm pack` from this repository. Do not bypass lifecycle scripts with `--ignore-scripts`.
+- Copy the new archive into the consuming app's `vendor/` directory and install that exact file with `npx expo install @asugan/expo-kit@file:vendor/asugan-expo-kit-<version>.tgz`. Use `bunx` in Bun apps. Commit the app's archive, dependency change, and lockfile together when making a release commit.
+- Verify the installed package version and test UI changes in the consuming app. Source tests do not prove that an older installed archive contains the same code.
+- Keep only the current archive in this repository. Remove obsolete copies only after checking that no consuming app references those paths; do not delete other apps' vendored dependencies.
 
 RevenueCat SDK **9.x** is supported. The source apps use Expo 57, React Native 0.86.3,
 and RevenueCat 9.10.3 / 9.15.2. The package does not bundle its own copies of React, Expo,

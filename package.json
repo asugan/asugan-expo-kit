@@ -1,7 +1,7 @@
 {
   "name": "@asugan/expo-kit",
-  "version": "0.3.1",
-  "description": "Shared building blocks for Asugan Expo apps: RevenueCat subscriptions and a customizable paywall.",
+  "version": "0.4.1",
+  "description": "Shared building blocks for Asugan Expo apps: RevenueCat subscriptions, a customizable paywall, Aptabase analytics and Sentry setup.",
   "license": "UNLICENSED",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -24,9 +24,20 @@
       "types": "./dist/purchase-success-modal.d.ts",
       "default": "./dist/purchase-success-modal.js"
     },
+    "./analytics": {
+      "types": "./dist/analytics.d.ts",
+      "default": "./dist/analytics.js"
+    },
+    "./sentry": {
+      "types": "./dist/sentry.d.ts",
+      "default": "./dist/sentry.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -37,16 +48,32 @@
   "peerDependencies": {
     "react": ">=19.0.0 <20",
     "react-native": ">=0.81.0 <1",
-    "react-native-safe-area-context": ">=5.0.0 <6",
     "react-native-purchases": ">=9.10.3 <10",
-    "react-native-purchases-ui": ">=9.10.3 <10"
+    "react-native-purchases-ui": ">=9.10.3 <10",
+    "react-native-safe-area-context": ">=5.0.0 <6",
+    "@aptabase/react-native": ">=0.6.0 <1",
+    "@sentry/react-native": ">=7.11.0 <9"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-native-safe-area-context": { "optional": true },
-    "react-native-purchases-ui": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    },
+    "react-native-purchases-ui": {
+      "optional": true
+    },
+    "@aptabase/react-native": {
+      "optional": true
+    },
+    "@sentry/react-native": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@aptabase/react-native": "0.6.0",
+    "@sentry/react-native": "7.11.0",
     "@types/react": "~19.2.4",
     "react": "19.2.3",
     "react-native": "0.86.3",
@@ -56,5 +83,7 @@
     "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
-  "publishConfig": { "access": "public" }
+  "publishConfig": {
+    "access": "public"
+  }
 }

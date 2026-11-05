@@ -15,10 +15,10 @@ npm pack
 Install the generated archive in your Expo app:
 
 ```sh
-npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.3.1.tgz react-native-purchases@^9.10.3
+npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.1.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.3.1 includes the compact recommended badge positioned over the plan card's top-right border.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints.
 
 ### Local package release rules
 
@@ -342,6 +342,48 @@ isolates its content for screen readers. The root SDK entrypoint remains headles
 Compare products in the same currency when using the pricing helpers; they do not convert currencies.
 App theme providers, translations, analytics, URL handling, the navbar,
 and a React provider were not extracted in this release. The optional Paywall screen accepts these app-specific values through props.
+
+## Analytics (Aptabase) — optional
+
+```sh
+npx expo install @aptabase/react-native@^0.6.0
+```
+
+```ts
+// src/lib/analytics.ts
+import { createAnalytics, type PurchaseFunnelEvent } from '@asugan/expo-kit/analytics';
+
+type AppEvent = PurchaseFunnelEvent | 'onboarding_completed' | 'ritual_completed';
+
+export const { init: initAnalytics, trackEvent } = createAnalytics<AppEvent>({
+  appKey: process.env.EXPO_PUBLIC_APTABASE_APP_KEY,
+  host: process.env.EXPO_PUBLIC_APTABASE_HOST,
+});
+```
+
+A missing or invalid key (or a self-hosted key without `host`) makes every call a no-op and `init()` returns `false`.
+The SDK initializes lazily on the first event; SDK errors are swallowed (logged in development) so analytics never breaks a user flow.
+Aptabase holds one global client: create one analytics client per app. Clients with the same key share it;
+a client with a different key or host stays disabled instead of redirecting events.
+
+## Sentry — optional
+
+```sh
+npx expo install @sentry/react-native
+```
+
+```ts
+// src/lib/sentry.ts — import it first in the root layout
+import { initSentry } from '@asugan/expo-kit/sentry';
+
+export const { navigationIntegration } = initSentry({ dsn: process.env.EXPO_PUBLIC_SENTRY_DSN });
+```
+
+Defaults: `tracesSampleRate: 0.2`, `profilesSampleRate: 0`, disabled without a DSN or on web,
+React Navigation tracing with time to initial display. Any other `Sentry.init` option can be passed and overrides the defaults.
+Register the integration in the root layout with `navigationIntegration.registerNavigationContainer(useNavigationContainerRef())`.
+The Metro config (`getSentryExpoConfig`), the `@sentry/react-native/expo` plugin, `SENTRY_AUTH_TOKEN`,
+`Sentry.wrap` and `Sentry.captureException` calls stay in the app. Supported: `@sentry/react-native` 7.11+ and 8.x.
 
 ## Security and verification
 

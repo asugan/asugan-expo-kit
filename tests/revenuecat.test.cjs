@@ -327,5 +327,8 @@ test('Metro resolves native core and optional UI on iOS/Android, safe fallbacks 
     assert.equal(paywall.filePath, path.join(root, 'dist/paywall.js'));
     const success = resolve(ctx, '@asugan/expo-kit/purchase-success-modal', platform);
     assert.equal(success.filePath, path.join(root, 'dist/purchase-success-modal.js'));
+    for (const name of ['analytics', 'sentry']) {
+      assert.equal(resolve(ctx, `@asugan/expo-kit/${name}`, platform).filePath, path.join(root, `dist/${name}.js`));
+    }
   }
 });

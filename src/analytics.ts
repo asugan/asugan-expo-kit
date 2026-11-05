@@ -1,5 +1,6 @@
 // @ts-expect-error TS1479: SDK ships ESM-only .d.mts types for a CommonJS main; Metro loads the CJS build.
 import { init as initAptabase, trackEvent as trackAptabaseEvent } from '@aptabase/react-native';
+import { Platform } from 'react-native';
 
 export type AnalyticsProperties = Record<string, string | number | boolean>;
 
@@ -37,7 +38,9 @@ let sdkConfig: string | undefined;
 
 // The SDK only logs (never throws) when it rejects a config, so check up front to report the truth.
 // shortcut: mirrors @aptabase/react-native 0.6 validation (A-<US|EU|DEV|SH>-<id>), update if the key format changes.
+// Web is excluded: the SDK disables web tracking unless enableWeb is set, which this client does not expose.
 function isValidConfig(appKey: string, host: string | undefined): boolean {
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') return false;
   const parts = appKey.split('-');
   return parts.length === 3 && ['US', 'EU', 'DEV', 'SH'].includes(parts[1]) && (parts[1] !== 'SH' || Boolean(host));
 }
@@ -56,7 +59,9 @@ export function createAnalytics<TEvent extends string = string>(config: Analytic
   function init(): boolean {
     if (state !== 'idle') return state === 'ready';
     if (!appKey) return disable('Aptabase app key is missing.');
-    if (!isValidConfig(appKey, host)) return disable('Aptabase app key is invalid, or a self-hosted key has no host.');
+    if (!isValidConfig(appKey, host)) {
+      return disable('Aptabase app key is invalid, a self-hosted key has no host, or the platform is not iOS/Android.');
+    }
     const requested = `${appKey}|${host ?? ''}`;
     if (sdkConfig !== undefined && sdkConfig !== requested) {
       return disable('Aptabase is already initialized with a different app key or host.');

@@ -15,14 +15,17 @@ function load(file, mocks) {
   try { return require(resolved); } finally { Module._load = original; }
 }
 
-function aptabase({ initThrows = false, trackThrows = false } = {}) {
+function aptabase({ initThrows = false, trackThrows = false, platform = 'ios' } = {}) {
   const inits = [];
   const events = [];
   const sdk = {
     init: (...args) => { if (initThrows) throw new Error('init failed'); inits.push(args); },
     trackEvent: (...args) => { if (trackThrows) throw new Error('track failed'); events.push(args); },
   };
-  const { createAnalytics } = load('../dist/analytics', { '@aptabase/react-native': sdk });
+  const { createAnalytics } = load('../dist/analytics', {
+    '@aptabase/react-native': sdk,
+    'react-native': { Platform: { OS: platform } },
+  });
   return { createAnalytics, inits, events };
 }
 
@@ -61,6 +64,18 @@ test('analytics reports false for configs the SDK would silently reject', () => 
   }
   assert.deepEqual(inits, []);
   assert.deepEqual(events, []);
+});
+
+test('analytics is disabled outside iOS and Android, where the SDK would not send events', () => {
+  for (const platform of ['web', 'windows']) {
+    const { createAnalytics, inits, events } = aptabase({ platform });
+    const analytics = createAnalytics({ appKey: 'A-EU-1' });
+    assert.equal(analytics.init(), false, platform);
+    analytics.trackEvent('paywall_viewed');
+    assert.deepEqual(inits, []);
+    assert.deepEqual(events, []);
+  }
+  assert.equal(aptabase({ platform: 'android' }).createAnalytics({ appKey: 'A-EU-1' }).init(), true);
 });
 
 test('analytics clients share one SDK config and reject a conflicting one', () => {

@@ -15,10 +15,10 @@ npm pack
 Install the generated archive in your Expo app:
 
 ```sh
-npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.2.tgz react-native-purchases@^9.10.3
+npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.3.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android.
 
 ### Local package release rules
 
@@ -361,7 +361,7 @@ export const { init: initAnalytics, trackEvent } = createAnalytics<AppEvent>({
 });
 ```
 
-A missing or invalid key (or a self-hosted key without `host`) makes every call a no-op and `init()` returns `false`.
+A missing or invalid key, a self-hosted key without `host`, or a platform other than iOS/Android makes every call a no-op and `init()` returns `false`.
 The SDK initializes lazily on the first event; SDK errors are swallowed (logged in development) so analytics never breaks a user flow.
 Aptabase holds one global client: create one analytics client per app. Clients with the same key share it;
 a client with a different key or host stays disabled instead of redirecting events.

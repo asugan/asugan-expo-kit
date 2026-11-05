@@ -132,6 +132,10 @@ export function createRevenueCat(input: RevenueCatConfig): RevenueCatClient {
           purchaseError.code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
           return { isActive: false, cancelled: true };
         }
+        // Deferred payments await store approval; they are not purchase failures.
+        if (purchaseError.code === Purchases.PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) {
+          return { isActive: false, cancelled: false };
+        }
       }
       throw error;
     }

@@ -15,7 +15,7 @@ npm pack
 Install the generated archive in your Expo app:
 
 ```sh
-npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.1.tgz react-native-purchases@^9.10.3
+npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.2.tgz react-native-purchases@^9.10.3
 ```
 
 `npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints.
@@ -91,7 +91,7 @@ const restored = await subscriptions.restorePurchases();
 | `init()` | Whether the native SDK is ready. Returns `false` if the API key is missing. |
 | `syncEntitlement()` | Passes the current entitlement state to the cache callback and returns whether it is active. |
 | `getPaywallData()` | The offering and its `oneTime` (lifetime), `yearly`, `monthly`, and `weekly` plans. |
-| `purchasePlan(cycle?)` | `{ isActive, cancelled }`; other SDK errors propagate to the caller. |
+| `purchasePlan(cycle?)` | `{ isActive, cancelled }`; deferred payments return `{ isActive: false, cancelled: false }`. Other SDK errors propagate to the caller. |
 | `restorePurchases()` | Returns `true` if active access is found; configuration and SDK errors propagate to the caller. |
 | `dispose()` | Removes the client's listener; the client cannot be reused. In-flight operations and cache writes may still complete. |
 

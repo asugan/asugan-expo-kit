@@ -38,7 +38,7 @@ function native(platform = 'ios') {
   const configurations = [];
   const sdk = {
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
-    PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1' },
+    PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PAYMENT_PENDING_ERROR: '20' },
     configure: (config) => configurations.push(config),
     addCustomerInfoUpdateListener: (listener) => listeners.add(listener),
     removeCustomerInfoUpdateListener: (listener) => listeners.delete(listener),
@@ -230,6 +230,20 @@ test('purchase cancellation is distinct from pending entitlement and SDK errors'
   assert.deepEqual(await client.purchasePlan('monthly'), { isActive: false, cancelled: false });
   env.sdk.purchasePackage = async () => { throw new Error('store failed'); };
   await assert.rejects(client.purchasePlan(), /store failed/);
+});
+
+test('deferred payments return pending without changing access; later approval updates the cache', async () => {
+  for (const platform of ['ios', 'android']) {
+    const env = native(platform);
+    const updates = [];
+    const client = env.createRevenueCat({ ...config, onEntitlementChange: (...args) => updates.push(args) });
+    env.sdk.purchasePackage = async () => { throw { code: env.sdk.PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR, userCancelled: false }; };
+    assert.deepEqual(await client.purchasePlan('yearly'), { isActive: false, cancelled: false });
+    assert.deepEqual(updates, []);
+    for (const listener of env.listeners) listener(info());
+    await new Promise(setImmediate);
+    assert.deepEqual(updates, [[true, '2030-01-01T00:00:00Z']]);
+  }
 });
 
 test('sync, restore and listener persist active, revoked and missing entitlements in order', async () => {

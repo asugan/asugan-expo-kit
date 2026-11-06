@@ -21,11 +21,15 @@ export type RevenueCatPaywallData = {
   isConfigured: boolean;
   offeringIdentifier: string | null;
   plans: Partial<Record<BillingCycle, RevenueCatPaywallPlan>>;
+  /** Offering load failure; SDK readiness is preserved so restore stays available. */
+  error?: unknown;
 };
 
 export type RevenueCatPurchaseOutcome = {
   isActive: boolean;
   cancelled: boolean;
+  /** True when the store reported an already-owned product and access came from a restore, not a new charge. */
+  restored?: boolean;
 };
 
 export type RevenueCatConfig = {

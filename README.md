@@ -15,10 +15,10 @@ npm pack
 Install the generated archive in your Expo app:
 
 ```sh
-npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.3.tgz react-native-purchases@^9.10.3
+npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.4.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases.
 
 ### Local package release rules
 
@@ -73,6 +73,8 @@ In your paywall screen, manage these calls with your own loading, error, and toa
 
 ```ts
 const data = await subscriptions.getPaywallData();
+setPaywallData(data); // Keep SDK readiness available for restore, even on an offering error.
+if ('error' in data) throw data.error; // Handle reporting/localized feedback in the host's catch.
 const yearly = data.plans.yearly;
 // yearly?.price: the store's localized price
 // yearly?.trialPeriodNumberOfUnits / trialPeriodUnit: confirmed trial duration
@@ -90,8 +92,8 @@ const restored = await subscriptions.restorePurchases();
 | --- | --- |
 | `init()` | Whether the native SDK is ready. Returns `false` if the API key is missing. |
 | `syncEntitlement()` | Passes the current entitlement state to the cache callback and returns whether it is active. |
-| `getPaywallData()` | The offering and its `oneTime` (lifetime), `yearly`, `monthly`, and `weekly` plans. |
-| `purchasePlan(cycle?)` | `{ isActive, cancelled }`; deferred payments return `{ isActive: false, cancelled: false }`. Other SDK errors propagate to the caller. |
+| `getPaywallData()` | The offering and its `oneTime` (lifetime), `yearly`, `monthly`, and `weekly` plans. Offering failures return empty plans with an `error` property and preserve `isConfigured`; initialization errors still reject. |
+| `purchasePlan(cycle?)` | `{ isActive, cancelled }`; already-owned products automatically restore and return `{ isActive: true, cancelled: false, restored: true }` when the entitlement is active (report it as a restore, not a new purchase); otherwise the original SDK error propagates. Deferred payments return `{ isActive: false, cancelled: false }`. Other SDK errors, including restore failures, propagate to the caller. |
 | `restorePurchases()` | Returns `true` if active access is found; configuration and SDK errors propagate to the caller. |
 | `dispose()` | Removes the client's listener; the client cannot be reused. In-flight operations and cache writes may still complete. |
 
@@ -245,8 +247,11 @@ Set the translated badge label with `copy.recommended` (replaces per-plan `copy.
 If a selected plan disappears, selection falls back to the highest-priority displayed available plan,
 unless an available `defaultCycle` overrides it.
 Loading and errors hide plan cards and disable purchases. Restore remains available
-when the SDK is configured but the offering is empty. Narrow screens and large system
-text sizes stack the price below the plan label; content scrolls without truncating text.
+when the SDK is configured but the offering is empty or failed to load. Save the returned
+data before handling its `error` in the host; do not reset it to `null` on offering errors.
+The paywall uses `copy.empty` and `copy.retry` for offering-error feedback unless the host
+supplies a localized `error` message; raw SDK errors are never shown. Narrow screens and
+large system text sizes stack the price below the plan label; content scrolls without truncating text.
 
 This component does not call RevenueCat, open URLs, translate strings, or infer successful purchases.
 It can display the optional `success` modal after the host confirms active access.

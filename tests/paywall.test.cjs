@@ -182,6 +182,28 @@ test('loading, error/retry, empty, and unconfigured states do not permit purchas
   await cleanup(renderer);
 });
 
+test('offering errors show localized retry feedback without disabling restore', async () => {
+  events.length = 0;
+  const failed = { ...data, plans: {}, error: new Error('Internal SDK details') };
+  const renderer = await render({ data: failed });
+  assert.ok(texts(renderer).includes('No plans available'));
+  assert.ok(!texts(renderer).includes('Internal SDK details'));
+  assert.equal(controls(renderer, 'radio').length, 0);
+  assert.equal(button(renderer, 'Unlock premium').props.disabled, true);
+  assert.equal(button(renderer, 'Restore purchases').props.disabled, false);
+  await act(() => button(renderer, 'Retry plans').props.onPress());
+  await act(() => button(renderer, 'Restore purchases').props.onPress());
+  assert.deepEqual(events, [['retry'], ['restore']]);
+  await update(renderer, { data: failed, error: 'Localized store error' });
+  assert.ok(texts(renderer).includes('Localized store error'));
+  await update(renderer, { data: { ...data, error: failed.error } });
+  assert.equal(controls(renderer, 'radio').length, 0);
+  assert.equal(button(renderer, 'Buy oneTime').props.disabled, true);
+  await update(renderer);
+  assert.equal(button(renderer, 'Buy oneTime').props.disabled, false);
+  await cleanup(renderer);
+});
+
 test('busy/premium states block actions, preserve accessible labels, and recover after failure', async () => {
   events.length = 0;
   const renderer = await render({ purchasing: true });

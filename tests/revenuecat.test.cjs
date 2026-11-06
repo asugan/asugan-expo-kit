@@ -38,7 +38,7 @@ function native(platform = 'ios') {
   const configurations = [];
   const sdk = {
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
-    PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PAYMENT_PENDING_ERROR: '20' },
+    PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PRODUCT_ALREADY_PURCHASED_ERROR: '6', PAYMENT_PENDING_ERROR: '20' },
     configure: (config) => configurations.push(config),
     addCustomerInfoUpdateListener: (listener) => listeners.add(listener),
     removeCustomerInfoUpdateListener: (listener) => listeners.delete(listener),
@@ -143,6 +143,39 @@ test('paywall uses exact offering, localized prices and confirmed iOS trial elig
   });
 });
 
+test('offering failures preserve SDK readiness, allow restore, and recover on retry', async () => {
+  for (const platform of ['ios', 'android']) {
+    const env = native(platform);
+    const updates = [];
+    const client = env.createRevenueCat({ ...config, onEntitlementChange: (...args) => updates.push(args) });
+    const error = new Error('Offerings unavailable');
+    const getOfferings = env.sdk.getOfferings;
+    env.sdk.getOfferings = async () => { throw error; };
+
+    assert.deepEqual(await client.getPaywallData(), {
+      isConfigured: true, offeringIdentifier: null, plans: {}, error,
+    });
+    assert.deepEqual(updates, []);
+    assert.equal(await client.restorePurchases(), true);
+    assert.deepEqual(updates, [[true, '2030-01-01T00:00:00Z']]);
+
+    env.sdk.getOfferings = getOfferings;
+    const data = await client.getPaywallData();
+    assert.equal(data.isConfigured, true);
+    assert.equal(data.offeringIdentifier, 'main');
+    assert.equal(Object.keys(data.plans).length, 4);
+    assert.equal('error' in data, false);
+  }
+});
+
+test('paywall initialization failures still reject rather than enabling restore', async () => {
+  const env = native();
+  env.sdk.configure = () => { throw new Error('SDK unavailable'); };
+  const client = env.createRevenueCat(config);
+  await assert.rejects(client.getPaywallData(), /SDK unavailable/);
+  assert.equal(env.listeners.size, 0);
+});
+
 test('trial eligibility failures keep plans but do not promise a trial', async () => {
   const env = native();
   env.sdk.checkTrialOrIntroductoryPriceEligibility = async () => { throw new Error('offline'); };
@@ -230,6 +263,48 @@ test('purchase cancellation is distinct from pending entitlement and SDK errors'
   assert.deepEqual(await client.purchasePlan('monthly'), { isActive: false, cancelled: false });
   env.sdk.purchasePackage = async () => { throw new Error('store failed'); };
   await assert.rejects(client.purchasePlan(), /store failed/);
+});
+
+test('already-owned purchases restore, persist the store entitlement, and reject when it is inactive', async () => {
+  for (const platform of ['ios', 'android']) {
+    for (const restoredInfo of [info(), info(false), { entitlements: { all: {} } }]) {
+      const env = native(platform);
+      const updates = [];
+      let restores = 0;
+      const client = env.createRevenueCat({ ...config, onEntitlementChange: (...args) => updates.push(args) });
+      const ownedError = { code: '6' };
+      env.sdk.purchasePackage = async () => { throw ownedError; };
+      env.sdk.restorePurchases = async () => { restores++; return restoredInfo; };
+      const entitlement = restoredInfo.entitlements.all.premium;
+
+      if (entitlement?.isActive === true) {
+        assert.deepEqual(await client.purchasePlan('monthly'), { isActive: true, cancelled: false, restored: true });
+      } else {
+        // Inactive restores reject with the original error so hosts do not report a pending payment.
+        await assert.rejects(client.purchasePlan('monthly'), (received) => received === ownedError);
+      }
+      assert.equal(restores, 1);
+      assert.deepEqual(updates, [[entitlement?.isActive === true, entitlement?.expirationDate ?? null]]);
+    }
+  }
+});
+
+test('already-owned restore failures propagate without granting access or retrying the purchase', async () => {
+  for (const platform of ['ios', 'android']) {
+    const env = native(platform);
+    const updates = [];
+    let purchases = 0;
+    let restores = 0;
+    const error = new Error('Restore unavailable');
+    const client = env.createRevenueCat({ ...config, onEntitlementChange: (...args) => updates.push(args) });
+    env.sdk.purchasePackage = async () => { purchases++; throw { code: '6' }; };
+    env.sdk.restorePurchases = async () => { restores++; throw error; };
+
+    await assert.rejects(client.purchasePlan('monthly'), (received) => received === error);
+    assert.equal(purchases, 1);
+    assert.equal(restores, 1);
+    assert.deepEqual(updates, []);
+  }
 });
 
 test('deferred payments return pending without changing access; later approval updates the cache', async () => {

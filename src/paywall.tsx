@@ -90,7 +90,7 @@ export type PaywallProps = {
 /** Branded screen layout shared by Shadow Prompts and Wicca; no SDK or router imports. */
 export function Paywall({
   title, subtitle, logo, logoStyle, features, theme, copy, data,
-  loading = false, error, purchasing = false, restoring = false, isPremium = false, success,
+  loading = false, error: externalError, purchasing = false, restoring = false, isPremium = false, success,
   defaultCycle = 'oneTime', planOrder = defaultCycleOrder,
   onSelectPlan, onPurchase, onRestore, onClose, onRetry,
   terms, privacy, footer, style,
@@ -99,6 +99,7 @@ export function Paywall({
   const { width, fontScale } = useWindowDimensions();
   const compact = width < 360 || fontScale > 1.3;
   const busy = purchasing || restoring;
+  const error = externalError || (data && 'error' in data ? copy.empty : null);
   const plans = defaultCycleOrder.filter((cycle) => planOrder.includes(cycle)).flatMap((cycle) => {
     const plan = data?.isConfigured ? data.plans[cycle] : undefined;
     return plan ? [plan] : [];

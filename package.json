@@ -1,6 +1,6 @@
 {
   "name": "@asugan/expo-kit",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Shared building blocks for Asugan Expo apps: RevenueCat subscriptions, a customizable paywall, Aptabase analytics and Sentry setup.",
   "license": "UNLICENSED",
   "main": "./dist/index.js",

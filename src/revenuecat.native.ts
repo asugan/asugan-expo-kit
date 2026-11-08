@@ -54,6 +54,11 @@ export function createRevenueCat(input: RevenueCatConfig): RevenueCatClient {
     if (!sdkConfig) {
       Purchases.configure({ apiKey, appUserID: config.appUserID });
       sdkConfig = { apiKey, appUserID: config.appUserID };
+      // Sends the AdServices token so RevenueCat's Apple Search Ads integration can attribute installs.
+      if (Platform.OS === 'ios') {
+        Purchases.enableAdServicesAttributionTokenCollection()
+          .catch((error: unknown) => console.error('[expo-kit] AdServices token collection failed:', error));
+      }
     }
     Purchases.addCustomerInfoUpdateListener(onCustomerInfo);
     initialized = true;

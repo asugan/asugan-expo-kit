@@ -36,7 +36,9 @@ function native(platform = 'ios') {
   const weekly = pkg('WEEKLY', 'P1W');
   const offering = { identifier: 'main', annual, monthly, lifetime, weekly, availablePackages: [annual, monthly, lifetime, weekly] };
   const configurations = [];
+  const adServices = [];
   const sdk = {
+    enableAdServicesAttributionTokenCollection: async () => { adServices.push(platform); },
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
     PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PRODUCT_ALREADY_PURCHASED_ERROR: '6', PAYMENT_PENDING_ERROR: '20' },
     configure: (config) => configurations.push(config),
@@ -58,7 +60,7 @@ function native(platform = 'ios') {
   };
   let createRevenueCat;
   try { ({ createRevenueCat } = require(path)); } finally { Module._load = load; }
-  return { createRevenueCat, sdk, offering, configurations, purchased, listeners };
+  return { createRevenueCat, sdk, offering, configurations, purchased, listeners, adServices };
 }
 const config = { iosApiKey: 'appl_example', androidApiKey: 'goog_example', entitlementId: 'premium' };
 
@@ -132,6 +134,7 @@ test('native init is idempotent, shares SDK safely, cleans up only its own liste
   const sibling = env.createRevenueCat(config);
   await sibling.init();
   assert.equal(env.configurations.length, 1);
+  assert.deepEqual(env.adServices, ['ios']);
   assert.equal(env.listeners.size, 2);
   await assert.rejects(env.createRevenueCat({ ...config, iosApiKey: 'appl_other' }).init(), /different API key/);
   await assert.rejects(env.createRevenueCat({ ...config, appUserID: 'other-user' }).init(), /different API key or user/);
@@ -157,6 +160,9 @@ test('configure failures can retry; missing native key never configures or resto
   assert.deepEqual(await unconfigured.getPaywallData(), { isConfigured: false, offeringIdentifier: null, plans: {} });
   await assert.rejects(unconfigured.restorePurchases(), /not configured/);
   assert.equal(missing.configurations.length, 0);
+  const android = native('android');
+  assert.equal(await android.createRevenueCat(config).init(), true);
+  assert.deepEqual(android.adServices, []);
 });
 
 test('paywall uses exact offering, localized prices and confirmed iOS trial eligibility', async () => {

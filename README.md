@@ -106,6 +106,8 @@ const restored = await subscriptions.restorePurchases();
   Android trials are calculated from the selected product's `defaultOption.freePhase`.
 - The SDK is global: clients can share the same key and identity, but cannot reconfigure it with a different key or `appUserID`.
   Do not configure the SDK separately outside this package. Dynamic login/logout is outside this release's scope.
+- On iOS, configuring the SDK also enables AdServices attribution token collection for RevenueCat's Apple Ads
+  integration. It needs no ATT prompt; failures are logged and never block `init()`.
 - Do not call `dispose()` in the root layout's effect cleanup: React Strict Mode may reuse the same client.
   A client used throughout the app's lifetime does not need to be disposed.
 - Shadow Prompts' `trialPeriodNumber` is named `trialPeriodNumberOfUnits` in the shared API,

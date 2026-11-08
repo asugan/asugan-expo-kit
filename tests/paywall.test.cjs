@@ -152,7 +152,7 @@ test('trial timeline replaces the hero copy only when a plan has a trial and cop
   await cleanup(tinted);
 });
 
-test('purchase button and legal links stay outside the scroll area; trial notice follows the selected plan', async () => {
+test('purchase button and legal links scroll with the content, close stays outside; trial notice follows the selected plan', async () => {
   const trialYearly = { ...yearly, hasFreeTrial: true, trialPeriodNumberOfUnits: 7, trialPeriodUnit: 'DAY' };
   const trialNotice = (plan) => ({ text: `Reminder for ${plan.cycle}`, icon: 'bell-icon' });
   const renderer = await render({
@@ -160,10 +160,9 @@ test('purchase button and legal links stay outside the scroll area; trial notice
     copy: { ...props.copy, trialNotice },
   });
   const scroll = renderer.root.findByType('ScrollView');
-  assert.equal(scroll.findAll((node) => node.props.accessibilityLabel === 'Buy oneTime').length, 0);
-  assert.ok(button(renderer, 'Buy oneTime'));
-  for (const label of ['Close paywall', 'Restore purchases', 'Terms', 'Privacy']) {
-    assert.equal(scroll.findAll((node) => node.props.accessibilityLabel === label).length, 0);
+  assert.equal(scroll.findAll((node) => node.props.accessibilityLabel === 'Close paywall').length, 0);
+  for (const label of ['Buy oneTime', 'Restore purchases', 'Terms', 'Privacy']) {
+    assert.equal(scroll.findAll((node) => node.type === 'Pressable' && node.props.accessibilityLabel === label).length, 1);
     assert.equal(renderer.root.findAll((node) => node.type === 'Pressable' && node.props.accessibilityLabel === label).length, 1);
   }
   // Lifetime is selected and has no trial: no notice.
@@ -178,26 +177,16 @@ test('purchase button and legal links stay outside the scroll area; trial notice
   await cleanup(renderer);
 });
 
-test('plans and actions sit in the sticky footer on roomy screens and scroll inline on short or zoomed ones', async () => {
+test('plans and actions scroll inline after the content on every screen size', async () => {
   const radiosInScroll = (renderer) => renderer.root.findByType('ScrollView')
     .findAll((node) => node.type === 'Pressable' && node.props.accessibilityRole === 'radio').length;
   const buyInScroll = (renderer) => renderer.root.findByType('ScrollView')
     .findAll((node) => node.type === 'Pressable' && node.props.accessibilityLabel === 'Buy oneTime').length;
-  // Common ~700pt Android phones (window height minus status bar) still get footer plans.
-  for (const height of [844, 667, 640]) {
-    dimensions = { ...dimensions, height };
-    const renderer = await render();
-    assert.equal(controls(renderer, 'radio').length, 4);
-    assert.equal(radiosInScroll(renderer), 0);
-    assert.equal(buyInScroll(renderer), 0);
-    await cleanup(renderer);
-  }
-  dimensions = { width: 390, height: 844, fontScale: 1, scale: 3 };
-  for (const next of [{ height: 560 }, { fontScale: 2 }, { width: 320 }]) {
+  for (const next of [{}, { height: 560 }, { fontScale: 2 }, { width: 320 }]) {
     dimensions = { ...dimensions, ...next };
     const small = await render();
     assert.equal(radiosInScroll(small), 4);
-    // No sticky footer: the purchase button, disclosure and legal links follow the plans in the scroll.
+    // The purchase button, disclosure and legal links follow the plans in the scroll.
     assert.equal(buyInScroll(small), 1);
     assert.ok(small.root.findByType('ScrollView').findAllByType('Text')
       .some((node) => node.props.children === '$49.99 oneTime, renewal terms'));
@@ -284,6 +273,16 @@ test('recommendation is an inline pill next to the plan title; price line combin
   const muted = renderer.root.findAllByType('Text').find((node) => node.props.children === 'No trial');
   assert.equal(muted.props.style[1].color, props.theme.muted);
   assert.equal(muted.parent.props.style[1].backgroundColor, undefined);
+  // A top badge renders as a filled pill and joins the accessibility label.
+  await update(renderer, {
+    data: { ...data, plans: { monthly, yearly } },
+    copy: { ...props.copy, recommended: undefined,
+      plan: (plan) => ({ title: plan.cycle, topBadge: plan.cycle === 'yearly' ? 'Save 34%' : undefined }) },
+  });
+  const top = renderer.root.findAllByType('Text').find((node) => node.props.children === 'Save 34%');
+  assert.equal(top.parent.props.style[1].backgroundColor, props.theme.primary);
+  assert.ok(controls(renderer, 'radio').find((node) => node.props.accessibilityLabel.startsWith('yearly,'))
+    .props.accessibilityLabel.endsWith('Save 34%'));
   await cleanup(renderer);
 });
 
@@ -427,7 +426,6 @@ test('theme, artwork, ordering, optional slots, long text, and accessibility siz
   assert.ok(texts(renderer).includes('Custom footer'));
   assert.equal(button(renderer, 'Buy monthly').props.disabled, false);
   assert.deepEqual(renderer.root.findByType('SafeAreaView').props.style.at(-1), { paddingHorizontal: 4 });
-  // Large text keeps plans in the scroll area so the sticky footer cannot outgrow the screen.
   assert.equal(renderer.root.findByType('ScrollView').findAll((node) =>
     node.type === 'Pressable' && node.props.accessibilityRole === 'radio').length, 2);
   await cleanup(renderer);

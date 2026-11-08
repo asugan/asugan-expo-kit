@@ -18,7 +18,7 @@ Install the generated archive in your Expo app:
 npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.5.0.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner. Version 0.5.1 drops the sticky footer: plans and actions always scroll inline after the content, and plan copy gains `topBadge`, a pill centered on the card's top edge.
 
 ### Local package release rules
 
@@ -246,6 +246,7 @@ It follows the same priority among displayed available plans, independent of the
 if yearly is also absent, it moves to monthly, then weekly. An empty list has no badge.
 Set the translated badge label with `copy.recommended`. A plan's `copy.plan(...).badge` (for example a trial length) overrides it on that card; omit `copy.recommended` to show only per-plan badges.
 Set `badgeTone: 'muted'` on that plan copy to render its badge as a quiet outline in muted text (for example "No trial" next to a trial plan).
+Set `topBadge` (for example "Save 34%" from `calculateYearlySavingsPercentage`) to show a filled primary pill centered on the card's top edge, alongside any inline badge.
 If a selected plan disappears, selection falls back to the highest-priority displayed available plan,
 unless an available `defaultCycle` overrides it.
 Loading and errors hide plan cards and disable purchases. Restore remains available
@@ -290,13 +291,9 @@ It is hidden while loading, on errors, and once premium is active.
 
 ### Layout
 
-The purchase button is pinned to the bottom of the screen, outside the scroll area, with the optional
-trial notice and the plan cards above it and the billing disclosure and restore, terms and privacy links
-below it. Keep `billingDisclosure` short (one or two lines), since it is always visible. On narrow
-(< 360pt), very short (< 600pt) or large-text (font scale > 1.3) screens there is no sticky footer: the
-trial notice, plan cards, purchase button, disclosure and links follow the content inside the scroll area
-in the same order, so the footer never covers the screen and the plans stay directly above the button.
-`footer` scrolls with the content, after these actions on compact screens.
+The optional trial notice, plan cards, purchase button, billing disclosure and restore, terms and privacy
+links follow the hero, timeline and features inside the scroll area, in that order, so the plans stay
+directly above the purchase button. `footer` scrolls with the content, after these actions.
 The close button floats over the top-right of the scrolling content instead of reserving a header row; it is
 a quiet `theme.muted` × so it does not compete with the purchase button.
 While `loading` is true, only a centered spinner (labelled with `copy.loading`) and the close button are shown.

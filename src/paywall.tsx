@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
   type ColorValue,
   type ImageSourcePropType,
   type ImageStyle,
@@ -40,7 +39,10 @@ export type PaywallTheme = {
 export type PaywallFeature = { id: string; text: string; icon?: ReactNode };
 export type PaywallLink = { label: string; onPress: () => void };
 /** `badge` overrides the shared `recommended` badge for this card; `badgeTone: 'muted'` renders it as a quiet outline. */
-export type PaywallPlanCopy = { title: string; subtitle?: string; period?: string; badge?: string; badgeTone?: 'muted' };
+/** `topBadge` is a primary pill centered on the card's top edge (e.g. "Save 34%"). */
+export type PaywallPlanCopy = {
+  title: string; subtitle?: string; period?: string; badge?: string; badgeTone?: 'muted'; topBadge?: string;
+};
 export type PaywallTrialStep = { id: string; title: string; text: string; icon?: ReactNode };
 /** `eyebrow` is a small label above the title; `showLogo` keeps the logo above the trial hero. */
 export type PaywallTrialTimeline = {
@@ -68,7 +70,7 @@ export type PaywallCopy = {
    * subtitle and timeline (logo hidden unless `showLogo`). Receives the selected plan if it has a trial, else the first trial plan.
    */
   trialTimeline?: (plan: RevenueCatPaywallPlan) => PaywallTrialTimeline;
-  /** Shown above the sticky purchase button when the selected plan has a free trial; return null to hide. */
+  /** Shown above the purchase button when the selected plan has a free trial; return null to hide. */
   trialNotice?: (plan: RevenueCatPaywallPlan) => PaywallTrialNotice | null;
 };
 
@@ -116,11 +118,6 @@ export function Paywall({
   terms, privacy, footer, style,
 }: PaywallProps): ReactNode {
   const [chosenCycle, setChosenCycle] = useState<BillingCycle | null>(null);
-  const { width, height, fontScale } = useWindowDimensions();
-  const compact = width < 360 || fontScale > 1.3;
-  // Plans and actions sit in a sticky footer, unless it could outgrow small or zoomed screens;
-  // then they scroll inline after the content so the plans stay directly above the purchase button.
-  const stickyFooter = !compact && height >= 600;
   const busy = purchasing || restoring;
   const error = externalError || (data && 'error' in data ? copy.empty : null);
   const plans = defaultCycleOrder.filter((cycle) => planOrder.includes(cycle)).flatMap((cycle) => {
@@ -171,7 +168,7 @@ export function Paywall({
         const disabled = busy || isPremium;
         return (
           <Pressable key={plan.cycle} accessibilityRole="radio"
-            accessibilityLabel={[labels.title, plan.price, labels.period, labels.subtitle, badge]
+            accessibilityLabel={[labels.title, plan.price, labels.period, labels.subtitle, badge, labels.topBadge]
               .filter(Boolean).join(', ')}
             accessibilityState={{ checked: selected, disabled }} disabled={disabled}
             onPress={() => {
@@ -182,7 +179,17 @@ export function Paywall({
             style={({ pressed }) => [styles.plan, radius,
               { backgroundColor: selected ? theme.selected ?? theme.surface : theme.surface,
                 borderColor: selected ? theme.primary : theme.border },
+              labels.topBadge ? styles.planWithTopBadge : null,
               disabled && styles.disabled, pressed && styles.pressed]}>
+            {labels.topBadge ? (
+              <View style={styles.topBadgeRow}>
+                <View style={[styles.badge, { backgroundColor: theme.primary, borderColor: theme.primary }]}>
+                  <Text style={[styles.badgeText, { color: theme.onPrimary, fontFamily: theme.fontFamily }]}>
+                    {labels.topBadge}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
             <View style={styles.planHeader}>
               <Text style={[styles.planTitle, text]}>{labels.title}</Text>
               {badge ? (
@@ -321,19 +328,12 @@ export function Paywall({
               </View>
             ) : null}
 
-            {stickyFooter ? null : <View style={styles.actions}>{actions}</View>}
+            <View style={styles.actions}>{actions}</View>
 
             {footer}
           </ScrollView>
         )}
       </View>
-      {loading || !stickyFooter ? null : (
-        <View style={[styles.stickyBar, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
-          <View style={styles.sticky}>
-            {actions}
-          </View>
-        </View>
-      )}
       {success ? <PurchaseSuccessModal {...success} visible={isPremium} theme={theme} /> : null}
     </SafeAreaView>
   );
@@ -382,9 +382,10 @@ const styles = StyleSheet.create({
   planDetail: { fontSize: 14, lineHeight: 19, includeFontPadding: false },
   planPrice: { fontWeight: '700', fontVariant: ['tabular-nums'] },
   badge: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 1 },
+  // Straddles the top border; the extra margin keeps it clear of the card above.
+  planWithTopBadge: { marginTop: 8 },
+  topBadgeRow: { position: 'absolute', top: -10, start: 0, end: 0, alignItems: 'center' },
   badgeText: { fontSize: 11, lineHeight: 16, fontWeight: '700', includeFontPadding: false },
-  stickyBar: { borderTopWidth: StyleSheet.hairlineWidth },
-  sticky: { width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4, gap: 8 },
   notice: { minHeight: 36, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6,
     flexDirection: 'row', alignItems: 'center', gap: 8 },
   noticeText: { flex: 1, fontSize: 13, lineHeight: 18 },

@@ -18,7 +18,7 @@ Install the generated archive in your Expo app:
 npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.5.0.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner. Version 0.5.1 drops the sticky footer: plans and actions always scroll inline after the content, and plan copy gains `topBadge`, a pill centered on the card's top edge.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner. Version 0.5.1 drops the sticky footer: plans and actions always scroll inline after the content, and plan copy gains `topBadge`, a pill centered on the card's top edge. Version 0.5.3 shows the trial timeline only when the selected plan has a trial, so a paid plan is never presented with another plan's trial.
 
 ### Local package release rules
 
@@ -260,11 +260,11 @@ the badge wraps below the plan title; content scrolls without truncating text.
 
 ### Trial timeline
 
-Optional `copy.trialTimeline(plan)` switches the hero to a "how your trial works" layout when any
-displayed plan has a confirmed free trial. The logo is hidden, `title`/`subtitle` are replaced by the
+Optional `copy.trialTimeline(plan)` switches the hero to a "how your trial works" layout when the
+selected plan has a confirmed free trial. The logo is hidden, `title`/`subtitle` are replaced by the
 returned ones, and the steps render as a vertical timeline. Without trial plans, or without
-`copy.trialTimeline`, the original logo hero is shown. The function receives the selected plan when it
-has a trial, otherwise the first trial plan, so the copy can always state that plan's price.
+`copy.trialTimeline`, or when the selected plan has no trial, the original logo hero is shown. The
+function receives the selected plan, so the trial promise always matches the plan the purchase button buys.
 Steps without an `icon` show a small dot (the first highlighted); the timeline sits in a surface card.
 Return `showLogo: true` to keep the logo above the trial hero, and `eyebrow` for a small primary-colored
 label above the title (e.g. `APP PRO`); pass it already uppercased for correct locale casing.

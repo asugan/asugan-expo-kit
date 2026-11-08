@@ -89,7 +89,7 @@ test('branded content, default plan, selection, purchase, restore, close, and le
   await cleanup(renderer);
 });
 
-test('trial timeline replaces the hero copy only when a plan has a trial and copy is provided', async () => {
+test('trial timeline replaces the hero copy only when the selected plan has a trial and copy is provided', async () => {
   const trialYearly = { ...yearly, hasFreeTrial: true, trialPeriodNumberOfUnits: 7, trialPeriodUnit: 'DAY' };
   const seen = [];
   const trialTimeline = (plan) => {
@@ -105,8 +105,13 @@ test('trial timeline replaces the hero copy only when a plan has a trial and cop
   };
   const trialData = { ...data, plans: { ...data.plans, yearly: trialYearly } };
 
-  // Selected lifetime has no trial: timeline describes the first trial plan and replaces the logo.
+  // Selected lifetime has no trial: no trial promise even though yearly has one.
   const renderer = await render({ data: trialData, copy: { ...props.copy, trialTimeline } });
+  assert.ok(texts(renderer).includes(props.title));
+  assert.ok(!texts(renderer).includes('How your trial works'));
+  assert.deepEqual(seen, []);
+  // Selecting the trial plan switches to the timeline and replaces the logo.
+  await act(() => controls(renderer, 'radio').find((node) => node.props.accessibilityLabel.startsWith('yearly')).props.onPress());
   assert.equal(renderer.root.findAllByType('Image').length, 0);
   assert.ok(texts(renderer).includes('How your trial works'));
   assert.ok(!texts(renderer).includes(props.title));
@@ -129,7 +134,7 @@ test('trial timeline replaces the hero copy only when a plan has a trial and cop
   }
 
   // Opt-in: keep the logo and show an eyebrow above the trial title.
-  const branded = await render({ data: trialData, copy: { ...props.copy,
+  const branded = await render({ data: trialData, defaultCycle: 'yearly', copy: { ...props.copy,
     trialTimeline: (plan) => ({ ...trialTimeline(plan), eyebrow: 'APP PRO', showLogo: true }) } });
   assert.equal(branded.root.findByType('Image').props.source, props.logo);
   assert.ok(texts(branded).includes('APP PRO'));

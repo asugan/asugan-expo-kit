@@ -66,8 +66,8 @@ export type PaywallCopy = {
   /** Show the full recurring price/period, trial terms, and renewal policy here. */
   billingDisclosure: (plan: RevenueCatPaywallPlan) => string;
   /**
-   * When any visible plan has a confirmed free trial, replaces the hero with a trial title,
-   * subtitle and timeline (logo hidden unless `showLogo`). Receives the selected plan if it has a trial, else the first trial plan.
+   * When the selected plan has a confirmed free trial, replaces the hero with a trial title,
+   * subtitle and timeline (logo hidden unless `showLogo`). Receives the selected plan.
    */
   trialTimeline?: (plan: RevenueCatPaywallPlan) => PaywallTrialTimeline;
   /** Shown above the purchase button when the selected plan has a free trial; return null to hide. */
@@ -129,8 +129,8 @@ export function Paywall({
   const selectedCycle = chosenCycle && availableCycles.includes(chosenCycle) ? chosenCycle
     : getPreferredDefaultCycle(availableCycles, defaultCycle);
   const selectedPlan = plans.find((plan) => plan.cycle === selectedCycle);
-  const trialPlan = selectedPlan?.hasFreeTrial ? selectedPlan : plans.find((plan) => plan.hasFreeTrial);
-  const trial = trialPlan && copy.trialTimeline ? copy.trialTimeline(trialPlan) : null;
+  // Only the selected plan may promise a trial; the purchase button buys exactly that plan.
+  const trial = selectedPlan?.hasFreeTrial && copy.trialTimeline ? copy.trialTimeline(selectedPlan) : null;
   const heroTitle = trial ? trial.title : title;
   const heroSubtitle = trial ? trial.subtitle : subtitle;
   const canPurchase = Boolean(selectedPlan && !loading && !error && !busy && !isPremium);

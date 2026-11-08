@@ -15,10 +15,10 @@ npm pack
 Install the generated archive in your Expo app:
 
 ```sh
-npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.4.4.tgz react-native-purchases@^9.10.3
+npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.5.0.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner.
 
 ### Local package release rules
 
@@ -54,7 +54,7 @@ export const subscriptions = createRevenueCat({
 });
 ```
 
-`onEntitlementChange(isActive, expiresAt)` supports both Wicca's synchronous repository
+`onEntitlementChange(isActive, expiresAt, entitlement)` supports both Wicca's synchronous repository
 and Shadow Prompts' asynchronous mutation. Updates are processed in order. Cache write
 errors are logged; a completed store transaction is not incorrectly reported as a failed purchase.
 The host app remains responsible for offline caching, expiry checks, and premium access gates.
@@ -225,10 +225,10 @@ the component always displays the SDK's localized `plan.price`, not a caller-sup
 
 | Props | Purpose |
 | --- | --- |
-| `title`, `subtitle`, `logo`, `logoStyle` | Branding and optional artwork. |
-| `theme` | Required app palette; optional `fontFamily`, `headingFontFamily`, and `radius`. |
+| `title`, `subtitle`, `logo`, `logoStyle`, `titleStyle` | Branding, optional artwork, and an optional hero title style override. |
+| `theme` | Required app palette; optional `fontFamily`, `headingFontFamily`, `radius`, and `selected` (selected plan card background). |
 | `features` | Stable `id`, translated `text`, and optional `icon` for each benefit. |
-| `copy` | Required labels (including `recommended`), plan copy, billing disclosure, and optional plan-specific purchase label. |
+| `copy` | Required labels (including `recommended`), plan copy, billing disclosure, optional plan-specific purchase label, and optional `trialTimeline` / `trialNotice`. |
 | `data`, `loading`, `error`, `onRetry` | SDK paywall data and loading/error/empty/content states. |
 | `defaultCycle`, `planOrder`, `onSelectPlan` | Initial preference, visible cycle filter, and optional selection analytics. |
 | `purchasing`, `restoring`, `isPremium` | Controlled action states; plan selection and duplicate actions are disabled while busy. |
@@ -240,18 +240,66 @@ the component always displays the SDK's localized `plan.price`, not a caller-sup
 Fixed display priority: **lifetime (`oneTime`) → yearly → monthly → weekly**.
 Unavailable plans are skipped. Selection is internal; `defaultCycle` can override the initial preference
 without changing card order. `planOrder` filters visible cycles; its input order does not override priority.
-Exactly one compact recommended badge floats over the card's top-right border, without adding a row inside the card.
+Each card shows the plan title with an optional inline badge, then one line: `price` + `period` · `subtitle`.
+Exactly one compact recommended badge sits next to the title of one card.
 It follows the same priority among displayed available plans, independent of the user's selection. If lifetime is absent, yearly gets the badge;
 if yearly is also absent, it moves to monthly, then weekly. An empty list has no badge.
-Set the translated badge label with `copy.recommended` (replaces per-plan `copy.plan(...).badge`).
+Set the translated badge label with `copy.recommended`. A plan's `copy.plan(...).badge` (for example a trial length) overrides it on that card; omit `copy.recommended` to show only per-plan badges.
+Set `badgeTone: 'muted'` on that plan copy to render its badge as a quiet outline in muted text (for example "No trial" next to a trial plan).
 If a selected plan disappears, selection falls back to the highest-priority displayed available plan,
 unless an available `defaultCycle` overrides it.
 Loading and errors hide plan cards and disable purchases. Restore remains available
 when the SDK is configured but the offering is empty or failed to load. Save the returned
 data before handling its `error` in the host; do not reset it to `null` on offering errors.
 The paywall uses `copy.empty` and `copy.retry` for offering-error feedback unless the host
-supplies a localized `error` message; raw SDK errors are never shown. Narrow screens and
-large system text sizes stack the price below the plan label; content scrolls without truncating text.
+supplies a localized `error` message; raw SDK errors are never shown. On large system text sizes
+the badge wraps below the plan title; content scrolls without truncating text.
+
+### Trial timeline
+
+Optional `copy.trialTimeline(plan)` switches the hero to a "how your trial works" layout when any
+displayed plan has a confirmed free trial. The logo is hidden, `title`/`subtitle` are replaced by the
+returned ones, and the steps render as a vertical timeline. Without trial plans, or without
+`copy.trialTimeline`, the original logo hero is shown. The function receives the selected plan when it
+has a trial, otherwise the first trial plan, so the copy can always state that plan's price.
+Steps without an `icon` show a small dot (the first highlighted); the timeline sits in a surface card.
+Return `showLogo: true` to keep the logo above the trial hero, and `eyebrow` for a small primary-colored
+label above the title (e.g. `APP PRO`); pass it already uppercased for correct locale casing.
+
+```tsx
+trialTimeline: (plan) => {
+  const days = plan.trialPeriodUnit === 'WEEK' ? plan.trialPeriodNumberOfUnits! * 7 : plan.trialPeriodNumberOfUnits!;
+  return {
+    title: 'How your trial works',
+    subtitle: `First ${days} days free, then ${plan.price}`,
+    steps: [
+      { id: 'today', title: 'Today', text: 'Unlock every premium feature.', icon: <LockIcon /> },
+      { id: 'reminder', title: `In ${days - 2} days`, text: "We'll remind you your trial is almost over.", icon: <BellIcon /> },
+      { id: 'charge', title: `In ${days} days`, text: `You'll be charged ${plan.price}. Cancel anytime before.`, icon: <StarIcon /> },
+    ],
+  };
+},
+```
+
+Keep the reminder step consistent with what the app actually schedules (see `getTrialReminders`),
+and handle month/year trial units in your copy.
+
+Optional `copy.trialNotice(plan)` returns `{ text, icon? }` (or `null`) for a pill shown above the
+purchase button while the selected plan has a free trial, e.g. "We'll remind you before your trial ends".
+It is hidden while loading, on errors, and once premium is active.
+
+### Layout
+
+The purchase button is pinned to the bottom of the screen, outside the scroll area, with the optional
+trial notice and the plan cards above it and the billing disclosure and restore, terms and privacy links
+below it. Keep `billingDisclosure` short (one or two lines), since it is always visible. On narrow
+(< 360pt), very short (< 600pt) or large-text (font scale > 1.3) screens there is no sticky footer: the
+trial notice, plan cards, purchase button, disclosure and links follow the content inside the scroll area
+in the same order, so the footer never covers the screen and the plans stay directly above the button.
+`footer` scrolls with the content, after these actions on compact screens.
+The close button floats over the top-right of the scrolling content instead of reserving a header row; it is
+a quiet `theme.muted` × so it does not compete with the purchase button.
+While `loading` is true, only a centered spinner (labelled with `copy.loading`) and the close button are shown.
 
 This component does not call RevenueCat, open URLs, translate strings, or infer successful purchases.
 It can display the optional `success` modal after the host confirms active access.
@@ -347,6 +395,30 @@ isolates its content for screen readers. The root SDK entrypoint remains headles
 Compare products in the same currency when using the pricing helpers; they do not convert currencies.
 App theme providers, translations, analytics, URL handling, the navbar,
 and a React provider were not extracted in this release. The optional Paywall screen accepts these app-specific values through props.
+
+## Trial reminders
+
+`getTrialReminders(entitlement, now?)` returns the future local times for a three-step reminder
+sequence when the entitlement is an active, renewing free trial (`periodType === 'TRIAL'`,
+`willRenew === true`); otherwise it returns an empty array:
+
+- `activation`: 6 hours after a morning start, otherwise 10:00 the next day
+- `midTrial`: 10:00 two days before conversion
+- `lastDay`: 09:00 on the last day, or 19:00 the evening before when the trial ends before 10:00
+
+Short trials drop reminders that would collide, keeping the conversion warning. Reminders
+that have already passed are omitted, so the result can be rescheduled on every sync.
+The kit does not depend on a notification library; the host schedules and localizes them:
+
+```ts
+onEntitlementChange: (isActive, expiresAt, entitlement) => {
+  updateProAccessCache(isActive, expiresAt);
+  void syncTrialReminderNotifications(getTrialReminders(entitlement));
+},
+```
+
+Cancel previously scheduled trial reminders before scheduling the new list. Cancellations in
+store settings are only noticed on the next app launch or customer-info update.
 
 ## Analytics (Aptabase) — optional
 

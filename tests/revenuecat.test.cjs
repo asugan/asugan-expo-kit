@@ -80,6 +80,37 @@ test('trial duration and pricing helpers reject invalid data', () => {
   }
 });
 
+test('trial reminders cover renewing trials only, at stable local times', () => {
+  const at = (day, hour, minute = 0) => new Date(2030, 0, day, hour, minute);
+  const trial = (start, end, extra = {}) => ({
+    isActive: true, willRenew: true, periodType: 'TRIAL',
+    latestPurchaseDate: start.toISOString(), expirationDate: end.toISOString(), ...extra,
+  });
+  const reminders = (entitlement, now = at(1, 0)) =>
+    core.getTrialReminders(entitlement, now).map(({ kind, date }) => [kind, date.getTime()]);
+
+  // 7-day morning trial: same-day nudge, two days before, last-day morning.
+  assert.deepEqual(reminders(trial(at(1, 10), at(8, 10))), [
+    ['activation', at(1, 16).getTime()], ['midTrial', at(6, 10).getTime()], ['lastDay', at(8, 9).getTime()],
+  ]);
+  // Afternoon start waits for next morning; early-morning end moves the alert to the previous evening.
+  assert.deepEqual(reminders(trial(at(1, 15), at(8, 8))), [
+    ['activation', at(2, 10).getTime()], ['midTrial', at(6, 10).getTime()], ['lastDay', at(7, 19).getTime()],
+  ]);
+  // Already-sent reminders are not rescheduled on later syncs.
+  assert.deepEqual(reminders(trial(at(1, 10), at(8, 10)), at(7, 12)), [['lastDay', at(8, 9).getTime()]]);
+  // Short trials keep the conversion warning and drop colliding or out-of-trial reminders.
+  assert.deepEqual(reminders(trial(at(1, 15), at(2, 15))), [['lastDay', at(2, 9).getTime()]]);
+  assert.deepEqual(reminders(trial(at(1, 15), at(4, 15))), [
+    ['midTrial', at(2, 10).getTime()], ['lastDay', at(4, 9).getTime()],
+  ]);
+  for (const entitlement of [null, undefined, trial(at(1, 10), at(8, 10), { willRenew: false }),
+    trial(at(1, 10), at(8, 10), { periodType: 'NORMAL' }), trial(at(1, 10), at(8, 10), { isActive: false }),
+    trial(at(1, 10), at(8, 10), { expirationDate: null }), trial(at(8, 10), at(1, 10))]) {
+    assert.deepEqual(reminders(entitlement), []);
+  }
+});
+
 test('web fallback imports without native SDKs; secret keys and empty IDs rejected', async () => {
   const client = core.createRevenueCat(config);
   assert.equal(await client.init(), false);
@@ -157,7 +188,7 @@ test('offering failures preserve SDK readiness, allow restore, and recover on re
     });
     assert.deepEqual(updates, []);
     assert.equal(await client.restorePurchases(), true);
-    assert.deepEqual(updates, [[true, '2030-01-01T00:00:00Z']]);
+    assert.deepEqual(updates, [[true, '2030-01-01T00:00:00Z', { isActive: true, expirationDate: '2030-01-01T00:00:00Z' }]]);
 
     env.sdk.getOfferings = getOfferings;
     const data = await client.getPaywallData();
@@ -284,7 +315,7 @@ test('already-owned purchases restore, persist the store entitlement, and reject
         await assert.rejects(client.purchasePlan('monthly'), (received) => received === ownedError);
       }
       assert.equal(restores, 1);
-      assert.deepEqual(updates, [[entitlement?.isActive === true, entitlement?.expirationDate ?? null]]);
+      assert.deepEqual(updates, [[entitlement?.isActive === true, entitlement?.expirationDate ?? null, entitlement ?? null]]);
     }
   }
 });
@@ -317,7 +348,7 @@ test('deferred payments return pending without changing access; later approval u
     assert.deepEqual(updates, []);
     for (const listener of env.listeners) listener(info());
     await new Promise(setImmediate);
-    assert.deepEqual(updates, [[true, '2030-01-01T00:00:00Z']]);
+    assert.deepEqual(updates, [[true, '2030-01-01T00:00:00Z', { isActive: true, expirationDate: '2030-01-01T00:00:00Z' }]]);
   }
 });
 
@@ -337,7 +368,7 @@ test('sync, restore and listener persist active, revoked and missing entitlement
   env.sdk.getCustomerInfo = async () => ({ entitlements: { all: {} } });
   assert.equal(await client.syncEntitlement(), false);
   assert.deepEqual(updates.map(([active]) => active), [true, false, true, false, false]);
-  assert.deepEqual(updates[3], [false, null]);
+  assert.deepEqual(updates[3], [false, null, null]);
   env.sdk.restorePurchases = async () => { throw new Error('restore offline'); };
   await assert.rejects(client.restorePurchases(), /restore offline/);
   client.dispose();

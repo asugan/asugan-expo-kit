@@ -31,7 +31,7 @@ export function createRevenueCat(input: RevenueCatConfig): RevenueCatClient {
     const expiresAt = entitlement?.expirationDate ?? null;
     // Preserve arrival order for asynchronous host caches, without misreporting a successful purchase.
     pendingCacheUpdate = pendingCacheUpdate
-      .then(() => config.onEntitlementChange?.(isActive, expiresAt))
+      .then(() => config.onEntitlementChange?.(isActive, expiresAt, entitlement ?? null))
       .catch((error: unknown) => console.error('[expo-kit] Entitlement cache update failed:', error));
     await pendingCacheUpdate;
     return isActive;

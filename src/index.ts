@@ -1,5 +1,5 @@
 export { createRevenueCat } from './revenuecat';
-export { getFreeTrialDetails } from './trial';
+export { getFreeTrialDetails, getTrialReminders } from './trial';
 export {
   calculateYearlySavingsAmount,
   calculateYearlySavingsPercentage,
@@ -10,8 +10,11 @@ export type {
   FreeTrialDetails,
   RevenueCatClient,
   RevenueCatConfig,
+  RevenueCatEntitlement,
   RevenueCatPaywallData,
   RevenueCatPaywallPlan,
   RevenueCatPurchaseOutcome,
   TrialPeriodUnit,
+  TrialReminder,
+  TrialReminderKind,
 } from './types';

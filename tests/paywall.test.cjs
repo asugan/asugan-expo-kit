@@ -89,6 +89,123 @@ test('branded content, default plan, selection, purchase, restore, close, and le
   await cleanup(renderer);
 });
 
+test('trial timeline replaces the hero copy only when a plan has a trial and copy is provided', async () => {
+  const trialYearly = { ...yearly, hasFreeTrial: true, trialPeriodNumberOfUnits: 7, trialPeriodUnit: 'DAY' };
+  const seen = [];
+  const trialTimeline = (plan) => {
+    seen.push(plan.cycle);
+    return {
+      title: 'How your trial works', subtitle: `7 days free, then ${plan.price}`,
+      steps: [
+        { id: 'today', title: 'Today', text: 'Unlock everything' },
+        { id: 'remind', title: 'In 5 days', text: 'We remind you', icon: 'bell-icon' },
+        { id: 'charge', title: 'In 7 days', text: `You are charged ${plan.price}` },
+      ],
+    };
+  };
+  const trialData = { ...data, plans: { ...data.plans, yearly: trialYearly } };
+
+  // Selected lifetime has no trial: timeline describes the first trial plan and replaces the logo.
+  const renderer = await render({ data: trialData, copy: { ...props.copy, trialTimeline } });
+  assert.equal(renderer.root.findAllByType('Image').length, 0);
+  assert.ok(texts(renderer).includes('How your trial works'));
+  assert.ok(!texts(renderer).includes(props.title));
+  assert.ok(!texts(renderer).includes(props.subtitle));
+  assert.ok(texts(renderer).includes('You are charged $49.99'));
+  // Steps without an icon render a plain dot; the provided icon is kept.
+  assert.ok(![1, 2, 3].some((number) => texts(renderer).includes(number)));
+  assert.equal(renderer.root.findAll((node) => node.props.children === 'bell-icon').length > 0, true);
+  assert.deepEqual([...new Set(seen)], ['yearly']);
+  await cleanup(renderer);
+
+  // No trial plans, or no timeline copy: the original logo hero is unchanged.
+  for (const overrides of [{ copy: { ...props.copy, trialTimeline } }, { data: trialData }]) {
+    const plain = await render(overrides);
+    assert.ok(texts(plain).includes(props.title));
+    assert.ok(texts(plain).includes(props.subtitle));
+    assert.ok(!texts(plain).includes('How your trial works'));
+    assert.equal(plain.root.findByType('Image').props.source, props.logo);
+    await cleanup(plain);
+  }
+
+  // Opt-in: keep the logo and show an eyebrow above the trial title.
+  const branded = await render({ data: trialData, copy: { ...props.copy,
+    trialTimeline: (plan) => ({ ...trialTimeline(plan), eyebrow: 'APP PRO', showLogo: true }) } });
+  assert.equal(branded.root.findByType('Image').props.source, props.logo);
+  assert.ok(texts(branded).includes('APP PRO'));
+  assert.ok(texts(branded).includes('How your trial works'));
+  await cleanup(branded);
+
+  // titleStyle is applied to the hero title.
+  const styled = await render({ titleStyle: { fontSize: 20 } });
+  const heading = styled.root.findAll((node) => node.props.accessibilityRole === 'header')[0];
+  assert.deepEqual(heading.props.style.at(-1), { fontSize: 20 });
+  await cleanup(styled);
+
+  // theme.selected tints only the selected plan card.
+  const tinted = await render({ theme: { ...props.theme, selected: '#3A3020' } });
+  const cardColors = controls(tinted, 'radio').map((node) => {
+    const style = typeof node.props.style === 'function' ? node.props.style({ pressed: false }) : node.props.style;
+    return style[2].backgroundColor;
+  });
+  assert.deepEqual(cardColors, ['#3A3020', props.theme.surface, props.theme.surface, props.theme.surface]);
+  await cleanup(tinted);
+});
+
+test('purchase button and legal links stay outside the scroll area; trial notice follows the selected plan', async () => {
+  const trialYearly = { ...yearly, hasFreeTrial: true, trialPeriodNumberOfUnits: 7, trialPeriodUnit: 'DAY' };
+  const trialNotice = (plan) => ({ text: `Reminder for ${plan.cycle}`, icon: 'bell-icon' });
+  const renderer = await render({
+    data: { ...data, plans: { ...data.plans, yearly: trialYearly } },
+    copy: { ...props.copy, trialNotice },
+  });
+  const scroll = renderer.root.findByType('ScrollView');
+  assert.equal(scroll.findAll((node) => node.props.accessibilityLabel === 'Buy oneTime').length, 0);
+  assert.ok(button(renderer, 'Buy oneTime'));
+  for (const label of ['Close paywall', 'Restore purchases', 'Terms', 'Privacy']) {
+    assert.equal(scroll.findAll((node) => node.props.accessibilityLabel === label).length, 0);
+    assert.equal(renderer.root.findAll((node) => node.type === 'Pressable' && node.props.accessibilityLabel === label).length, 1);
+  }
+  // Lifetime is selected and has no trial: no notice.
+  assert.ok(!texts(renderer).includes('Reminder for yearly'));
+  await act(() => controls(renderer, 'radio')[1].props.onPress());
+  assert.ok(texts(renderer).includes('Reminder for yearly'));
+  // Hidden once premium is active, or when the host returns null.
+  await update(renderer, { data: { ...data, plans: { yearly: trialYearly } }, copy: { ...props.copy, trialNotice }, isPremium: true });
+  assert.ok(!texts(renderer).includes('Reminder for yearly'));
+  await update(renderer, { data: { ...data, plans: { yearly: trialYearly } }, copy: { ...props.copy, trialNotice: () => null } });
+  assert.ok(!texts(renderer).includes('Reminder for yearly'));
+  await cleanup(renderer);
+});
+
+test('plans and actions sit in the sticky footer on roomy screens and scroll inline on short or zoomed ones', async () => {
+  const radiosInScroll = (renderer) => renderer.root.findByType('ScrollView')
+    .findAll((node) => node.type === 'Pressable' && node.props.accessibilityRole === 'radio').length;
+  const buyInScroll = (renderer) => renderer.root.findByType('ScrollView')
+    .findAll((node) => node.type === 'Pressable' && node.props.accessibilityLabel === 'Buy oneTime').length;
+  // Common ~700pt Android phones (window height minus status bar) still get footer plans.
+  for (const height of [844, 667, 640]) {
+    dimensions = { ...dimensions, height };
+    const renderer = await render();
+    assert.equal(controls(renderer, 'radio').length, 4);
+    assert.equal(radiosInScroll(renderer), 0);
+    assert.equal(buyInScroll(renderer), 0);
+    await cleanup(renderer);
+  }
+  dimensions = { width: 390, height: 844, fontScale: 1, scale: 3 };
+  for (const next of [{ height: 560 }, { fontScale: 2 }, { width: 320 }]) {
+    dimensions = { ...dimensions, ...next };
+    const small = await render();
+    assert.equal(radiosInScroll(small), 4);
+    // No sticky footer: the purchase button, disclosure and legal links follow the plans in the scroll.
+    assert.equal(buyInScroll(small), 1);
+    assert.ok(small.root.findByType('ScrollView').findAllByType('Text')
+      .some((node) => node.props.children === '$49.99 oneTime, renewal terms'));
+    await cleanup(small);
+    dimensions = { width: 390, height: 844, fontScale: 1, scale: 3 };
+  }
+});
+
 test('a removed selected plan falls back to an available displayed plan, never a hidden cycle', async () => {
   const renderer = await render();
   await act(() => controls(renderer, 'radio')[2].props.onPress());
@@ -132,38 +249,56 @@ test('priority controls order, initial selection and one recommendation, skippin
   await cleanup(renderer);
 });
 
-test('recommendation floats over the top-right border without adding a row inside the card', async () => {
+test('recommendation is an inline pill next to the plan title; price line combines price, period and subtitle', async () => {
   const renderer = await render({ data: { ...data, plans: { monthly, yearly } }, planOrder: ['monthly', 'yearly'] });
   const card = controls(renderer, 'radio').find((node) => node.props.accessibilityLabel.startsWith('yearly,'));
   const title = card.findAllByType('Text').find((node) => node.props.children === 'yearly');
   const badge = card.findAllByType('Text').find((node) => node.props.children === 'Recommended');
   // Compare identity as a boolean: failures must not dump the entire React Fiber graph.
-  assert.ok(badge.parent.parent === card, 'badge must be positioned relative to the card');
-  assert.ok(badge.parent !== title.parent, 'badge must not occupy the plan label');
-  const badgeStyle = badge.parent.props.style[0];
-  assert.equal(badgeStyle.position, 'absolute');
-  assert.equal(badgeStyle.top, 0);
-  assert.equal(badgeStyle.right, 16);
-  assert.deepEqual(badgeStyle.transform, [{ translateY: '-50%' }]);
-  assert.equal(badge.parent.props.pointerEvents, 'none');
-  assert.equal(card.props.style({ pressed: false }).find((style) => style?.marginTop).marginTop, 12);
-  assert.equal(badge.props.numberOfLines, undefined);
-  dimensions = { ...dimensions, width: 320, fontScale: 2 };
-  await update(renderer, { data: { ...data, plans: { monthly, yearly } } });
-  const scaledCard = controls(renderer, 'radio')[0];
-  assert.equal(scaledCard.props.style({ pressed: false }).find((style) => style?.marginTop).marginTop, 24);
-  assert.ok(scaledCard.findAllByType('View').some((node) =>
-    Array.isArray(node.props.style) && node.props.style.some((style) => style?.flexDirection === 'column')));
-  dimensions = { ...dimensions, width: 390, fontScale: 1 };
+  assert.ok(badge.parent.parent === title.parent, 'badge must share the title row');
+  const row = title.parent.props.style;
+  assert.equal(row.flexDirection, 'row');
+  assert.equal(row.flexWrap, 'wrap');
+  assert.equal(badge.parent.props.style[0].position, undefined);
+  const priceLine = card.findAllByType('Text').find((node) => Array.isArray(node.props.children)
+    && node.props.children.includes(' · Localized description'));
+  assert.ok(priceLine, 'price, period and subtitle share one line');
+  assert.ok(priceLine.findAllByType('Text').some((node) => node.props.children === '$49.99'));
+  assert.ok(priceLine.props.children.includes('per year'));
+  // A per-plan badge replaces the shared recommendation; without `recommended` only per-plan badges show.
+  await update(renderer, {
+    data: { ...data, plans: { monthly, yearly } },
+    copy: { ...props.copy, recommended: undefined,
+      plan: (plan) => ({ title: plan.cycle, badge: plan.cycle === 'monthly' ? '3 days free' : undefined }) },
+  });
+  assert.ok(texts(renderer).includes('3 days free'));
+  assert.ok(!texts(renderer).includes('Recommended'));
+  assert.ok(controls(renderer, 'radio').find((node) => node.props.accessibilityLabel.startsWith('monthly,'))
+    .props.accessibilityLabel.endsWith('3 days free'));
+  // A muted per-plan badge is an outline in muted text, not a filled primary pill.
+  await update(renderer, {
+    data: { ...data, plans: { monthly, yearly } },
+    copy: { ...props.copy, recommended: undefined,
+      plan: (plan) => ({ title: plan.cycle, badge: plan.cycle === 'monthly' ? 'No trial' : undefined, badgeTone: 'muted' }) },
+  });
+  const muted = renderer.root.findAllByType('Text').find((node) => node.props.children === 'No trial');
+  assert.equal(muted.props.style[1].color, props.theme.muted);
+  assert.equal(muted.parent.props.style[1].backgroundColor, undefined);
   await cleanup(renderer);
 });
 
 test('loading, error/retry, empty, and unconfigured states do not permit purchases', async () => {
-  const renderer = await render({ data: null, loading: true });
-  assert.ok(texts(renderer).includes('Loading plans'));
-  assert.ok(!texts(renderer).includes('No plans available'));
-  assert.equal(button(renderer, 'Unlock premium').props.disabled, true);
-  assert.equal(button(renderer, 'Restore purchases').props.disabled, true);
+  // Loading shows only a spinner and the close button: no logo hero, plans, or actions.
+  const renderer = await render({ loading: true });
+  const spinner = renderer.root.findAllByType('ActivityIndicator');
+  assert.equal(spinner.length, 1);
+  assert.equal(spinner[0].props.accessibilityLabel, 'Loading plans');
+  assert.equal(renderer.root.findAllByType('Image').length, 0);
+  assert.equal(renderer.root.findAllByType('ScrollView').length, 0);
+  assert.ok(!texts(renderer).includes(props.title));
+  assert.equal(button(renderer, 'Unlock premium'), undefined);
+  assert.equal(button(renderer, 'Restore purchases'), undefined);
+  assert.ok(button(renderer, 'Close paywall'));
   await update(renderer, { error: 'Store offline' });
   assert.equal(controls(renderer, 'radio').length, 0);
   assert.ok(texts(renderer).includes('Store offline'));
@@ -292,8 +427,9 @@ test('theme, artwork, ordering, optional slots, long text, and accessibility siz
   assert.ok(texts(renderer).includes('Custom footer'));
   assert.equal(button(renderer, 'Buy monthly').props.disabled, false);
   assert.deepEqual(renderer.root.findByType('SafeAreaView').props.style.at(-1), { paddingHorizontal: 4 });
-  assert.ok(renderer.root.findAllByType('View').some((node) =>
-    Array.isArray(node.props.style) && node.props.style.some((style) => style?.flexDirection === 'column')));
+  // Large text keeps plans in the scroll area so the sticky footer cannot outgrow the screen.
+  assert.equal(renderer.root.findByType('ScrollView').findAll((node) =>
+    node.type === 'Pressable' && node.props.accessibilityRole === 'radio').length, 2);
   await cleanup(renderer);
   dimensions = { ...dimensions, width: 390, fontScale: 1 };
 });

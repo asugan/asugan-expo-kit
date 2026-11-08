@@ -1,6 +1,18 @@
 export type BillingCycle = 'oneTime' | 'yearly' | 'monthly' | 'weekly';
 export type TrialPeriodUnit = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
 
+/** Subset of RevenueCat's `PurchasesEntitlementInfo` passed to `onEntitlementChange`. */
+export type RevenueCatEntitlement = {
+  isActive: boolean;
+  willRenew: boolean;
+  periodType: string;
+  latestPurchaseDate: string;
+  expirationDate: string | null;
+};
+
+export type TrialReminderKind = 'activation' | 'midTrial' | 'lastDay';
+export type TrialReminder = { kind: TrialReminderKind; date: Date };
+
 export type FreeTrialDetails = {
   hasFreeTrial: boolean;
   trialPeriodNumberOfUnits: number | null;
@@ -40,7 +52,12 @@ export type RevenueCatConfig = {
   /** Optional stable identity. Create a new app session before changing this. */
   appUserID?: string;
   /** Connect the host app's SQLite/cache. Persistence errors are logged, not purchase failures. */
-  onEntitlementChange?: (isActive: boolean, expiresAt: string | null) => void | Promise<void>;
+  /** `entitlement` is the raw configured entitlement (null when missing); pass it to `getTrialReminders`. */
+  onEntitlementChange?: (
+    isActive: boolean,
+    expiresAt: string | null,
+    entitlement: RevenueCatEntitlement | null,
+  ) => void | Promise<void>;
 };
 
 export type RevenueCatClient = {

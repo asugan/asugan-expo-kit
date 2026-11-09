@@ -436,3 +436,25 @@ test('theme, artwork, ordering, optional slots, long text, and accessibility siz
   await cleanup(renderer);
   dimensions = { ...dimensions, width: 390, fontScale: 1 };
 });
+
+test('optional background renders full-bleed behind the content, non-interactive and hidden from screen readers', async () => {
+  const layer = (node) => node.type === 'View' && node.props.importantForAccessibility === 'no-hide-descendants'
+    && node.props.style?.position === 'absolute';
+  let renderer = await render();
+  assert.equal(renderer.root.findAll(layer).length, 0);
+  await cleanup(renderer);
+
+  renderer = await render({ background: React.createElement('Image', { testID: 'sky' }) });
+  const screen = renderer.root.findByType('SafeAreaView');
+  const [backdrop, main] = screen.children;
+  assert.ok(layer(backdrop));
+  assert.equal(backdrop.props.accessible, false);
+  assert.equal(backdrop.props.accessibilityElementsHidden, true);
+  assert.equal(backdrop.props.style.pointerEvents, 'none');
+  assert.deepEqual([backdrop.props.style.top, backdrop.props.style.bottom, backdrop.props.style.start, backdrop.props.style.end], [0, 0, 0, 0]);
+  assert.equal(backdrop.findByProps({ testID: 'sky' }).type, 'Image');
+  // Content stays after the backdrop so it draws on top and keeps screen-reader order.
+  assert.ok(main.findAllByType('ScrollView').length === 1);
+  assert.ok(button(renderer, 'Close paywall'));
+  await cleanup(renderer);
+});

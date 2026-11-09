@@ -106,6 +106,11 @@ export type PaywallProps = {
   terms: PaywallLink;
   privacy: PaywallLink;
   footer?: ReactNode;
+  /**
+   * Decorative full-bleed layer behind the content (e.g. sky, mountains, mist images), edge to edge
+   * including safe areas. Non-interactive and hidden from screen readers; keep text contrast readable.
+   */
+  background?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -115,7 +120,7 @@ export function Paywall({
   loading = false, error: externalError, purchasing = false, restoring = false, isPremium = false, success,
   defaultCycle = 'oneTime', planOrder = defaultCycleOrder,
   onSelectPlan, onPurchase, onRestore, onClose, onRetry,
-  terms, privacy, footer, style,
+  terms, privacy, footer, background, style,
 }: PaywallProps): ReactNode {
   const [chosenCycle, setChosenCycle] = useState<BillingCycle | null>(null);
   const busy = purchasing || restoring;
@@ -257,6 +262,13 @@ export function Paywall({
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }, style]}>
+      {background ? (
+        // Absolute children ignore the safe-area padding, so this layer reaches every screen edge.
+        <View accessible={false} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden
+          style={styles.background}>
+          {background}
+        </View>
+      ) : null}
       <View style={styles.main}>
         {onClose ? (
           // Floats over the content so scrolling never loses a header band; zIndex keeps it on top
@@ -344,6 +356,7 @@ const linkHitSlop = { top: 6, bottom: 6 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  background: { position: 'absolute', top: 0, end: 0, bottom: 0, start: 0, overflow: 'hidden', pointerEvents: 'none' },
   main: { flex: 1 },
   close: { position: 'absolute', top: 6, end: 12, zIndex: 1, width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center' },

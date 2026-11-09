@@ -18,7 +18,7 @@ Install the generated archive in your Expo app:
 npx expo install @asugan/expo-kit@file:../asugan-skeleton/asugan-expo-kit-0.5.0.tgz react-native-purchases@^9.10.3
 ```
 
-`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner. Version 0.5.1 drops the sticky footer: plans and actions always scroll inline after the content, and plan copy gains `topBadge`, a pill centered on the card's top edge. Version 0.5.3 shows the trial timeline only when the selected plan has a trial, so a paid plan is never presented with another plan's trial.
+`npm pack` runs the build and all tests through `prepack`; a failing check prevents archive generation. Version 0.4.1 adds the optional `analytics` (Aptabase) and `sentry` entrypoints. Version 0.4.2 returns a pending outcome for deferred payments. Version 0.4.3 keeps analytics disabled outside iOS and Android. Version 0.4.4 preserves restore availability after offering load errors and automatically restores already-owned purchases. Version 0.5.0 passes the raw entitlement to `onEntitlementChange`, adds `getTrialReminders`, and redesigns the paywall: an optional trial timeline (`copy.trialTimeline` with optional `eyebrow` and `showLogo`), a compact sticky footer with plans, pill purchase button, `copy.trialNotice`, billing disclosure, restore and legal links (scrolling inline on compact screens), per-plan `badge` with `badgeTone: 'muted'`, optional `copy.recommended`, a `titleStyle` prop, `theme.selected` for the selected plan card, a quiet close button, and a plain loading spinner. Version 0.5.1 drops the sticky footer: plans and actions always scroll inline after the content, and plan copy gains `topBadge`, a pill centered on the card's top edge. Version 0.5.3 shows the trial timeline only when the selected plan has a trial, so a paid plan is never presented with another plan's trial. Version 0.5.4 adds an optional `background` slot: a decorative, full-bleed layer drawn behind the paywall content.
 
 ### Local package release rules
 
@@ -190,6 +190,28 @@ For Wicca's theme, map `surface` to `theme.colors.surface1`, `muted` to
 `theme.colors.onSurfaceMuted`, and optionally set `headingFontFamily` to
 `typefaces.display` imported from Wicca's `src/theme/tokens`. For Shadow Prompts, use its existing Paper theme colors as above.
 Feature icons are optional React nodes, so either app can pass its existing icon components.
+
+`background` is an optional React node drawn behind the content, edge to edge including the safe
+areas (status bar, home indicator). It is non-interactive and hidden from screen readers, so use it
+only for decoration such as a sky, mountains or mist layers; keep text contrast readable on top of it.
+`theme.background` stays as the base color underneath. The package does not depend on an image
+library, so pass your own components:
+
+```tsx
+import { Image } from 'expo-image';
+import { StyleSheet } from 'react-native';
+
+<Paywall
+  // ...other props
+  background={(
+    <>
+      <Image source={require('../assets/images/paywall/sky.webp')} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <Image source={require('../assets/images/paywall/mountains.webp')}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '55%' }} contentFit="fill" />
+    </>
+  )}
+/>
+```
 
 All strings come from the host app. This English copy example illustrates the contract;
 replace it with your translations and store-specific billing disclosures:
